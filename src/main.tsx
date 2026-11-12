@@ -27,12 +27,14 @@ import Settings from './modules/settings/Settings'
 
 // the public landing page loads on its own, so the portal doesn't carry it
 const Landing = lazy(() => import('./modules/landing/Landing'))
+const SignIn = lazy(() => import('./modules/auth/SignIn'))
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="welcome" element={<Suspense fallback={null}><Landing /></Suspense>} />
+        <Route path="sign-in" element={<Suspense fallback={null}><SignIn /></Suspense>} />
         <Route element={<AppShell />}>
           <Route index element={<Dashboard />} />
           <Route path="pipeline" element={<Pipeline />} />

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   IconArrowRight, IconArrowUpRight, IconBrandGoogle, IconBrandLinkedin, IconBrandWindows, IconBrandX, IconBrandYoutube, IconBrandZapier,
@@ -7,51 +7,8 @@ import {
   IconX, IconAd2, IconMail,
 } from '@tabler/icons-react'
 import '@fontsource-variable/geist'
+import { HalftoneU } from '../../shared/HalftoneU'
 import './landing.css'
-
-/* ------------------------------------------------------------------ hero art */
-
-/** A field of dots that draws the UNIR "U" mark, breathing slowly. Still when the person prefers less motion. */
-function HalftoneU() {
-  const ref = useRef<HTMLCanvasElement>(null)
-  useEffect(() => {
-    const cv = ref.current!
-    const ctx = cv.getContext('2d')!
-    const still = matchMedia('(prefers-reduced-motion: reduce)').matches
-    let raf = 0, w = 0, h = 0
-    const dpr = Math.min(devicePixelRatio || 1, 2)
-    const size = () => { w = cv.clientWidth; h = cv.clientHeight; cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0) }
-    // distance from a point to the U stroke (two uprights joined by a half circle), in units of the mark's height
-    const uDist = (x: number, y: number) => {
-      const r = 0.36, top = -0.5, joint = 0.14
-      const dSide = (cx: number) => (y < joint ? Math.hypot(x - cx, Math.max(top - y, 0)) : Infinity)
-      const dArc = y >= joint ? Math.abs(Math.hypot(x, y - joint) - r) : Infinity
-      return Math.min(dSide(-r), dSide(r), dArc)
-    }
-    const draw = (t: number) => {
-      ctx.clearRect(0, 0, w, h)
-      const gap = w < 640 ? 8 : 10, mark = h * 0.82, cx = w / 2, cy = h * 0.53
-      for (let y = gap / 2; y < h; y += gap) {
-        for (let x = gap / 2; x < w; x += gap) {
-          const ux = (x - cx) / mark, uy = (y - cy) / mark
-          const d = uDist(ux, uy)
-          const ring = Math.exp(-(d * d) / 0.0035)                     // the stroke itself
-          const glow = Math.exp(-(d * d) / 0.06) * 0.3                 // soft falloff around it
-          const wave = still ? 0 : Math.sin(ux * 6 + uy * 4 - t / 1100) * 0.18
-          const v = Math.min(1, ring + glow + wave * (ring + glow))
-          const rad = (gap / 2) * (0.18 + v * 0.62)
-          ctx.fillStyle = `rgba(15,35,71,${0.1 + v * 0.42})`
-          ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill()
-        }
-      }
-      if (!still) raf = requestAnimationFrame(draw)
-    }
-    size(); draw(0)
-    const ro = new ResizeObserver(() => { size(); if (still) draw(0) }); ro.observe(cv)
-    return () => { cancelAnimationFrame(raf); ro.disconnect() }
-  }, [])
-  return <canvas ref={ref} className="lp-hero__art" aria-hidden="true" />
-}
 
 /* ------------------------------------------------------------------ small parts */
 
@@ -161,18 +118,18 @@ export default function Landing() {
           <Logo />
           <nav className="lp-nav__links" aria-label="Main">{nav.map(([l, h]) => <a key={h} href={h}>{l}</a>)}</nav>
           <div className="lp-nav__end">
-            <Link to="/" className="lp-link">Sign in</Link>
-            <Link to="/" className="lp-btn lp-btn--sm">Get started</Link>
+            <Link to="/sign-in" className="lp-link">Sign in</Link>
+            <Link to="/sign-in?create" className="lp-btn lp-btn--sm">Get started</Link>
             <button type="button" className="lp-nav__menu" aria-label={menu ? 'Close menu' : 'Open menu'} aria-expanded={menu} onClick={() => setMenu(m => !m)}>{menu ? <IconX size={20} /> : <IconMenu2 size={20} />}</button>
           </div>
         </div>
-        {menu && <nav className="lp-nav__sheet" aria-label="Main">{nav.map(([l, h]) => <a key={h} href={h} onClick={() => setMenu(false)}>{l}</a>)}<Link to="/">Sign in</Link></nav>}
+        {menu && <nav className="lp-nav__sheet" aria-label="Main">{nav.map(([l, h]) => <a key={h} href={h} onClick={() => setMenu(false)}>{l}</a>)}<Link to="/sign-in">Sign in</Link></nav>}
       </header>
 
       <main>
         {/* hero */}
         <section className="lp-hero">
-          <HalftoneU />
+          <HalftoneU className="lp-hero__art" />
           <div className="lp-wrap lp-hero__row">
             <h1>Every enquiry, from first call to signed client</h1>
             <div className="lp-hero__side">
@@ -311,7 +268,7 @@ export default function Landing() {
               ['Product', [['Pipeline', '#product'], ['Campaigns', '#product'], ['Calendar', '#product'], ['AI agents', '#product']]],
               ['Practice areas', [['Family law', '#'], ['Personal injury', '#'], ['Immigration', '#'], ['Estate planning', '#']]],
               ['Company', [['How it works', '#how'], ['Integrations', '#integrations'], ['FAQ', '#faq'], ['Contact', '#cta']]],
-              ['Account', [['Sign in', '/'], ['Open the demo', '/']]],
+              ['Account', [['Sign in', '/sign-in'], ['Create account', '/sign-in?create'], ['Reset password', '/sign-in?reset'], ['Open the demo', '/']]],
             ].map(([h, links]) => (
               <div key={h as string}><h4>{h as string}</h4><ul>{(links as string[][]).map(([l, href]) => <li key={l}>{href.startsWith('/') ? <Link to={href}>{l}</Link> : <a href={href}>{l}</a>}</li>)}</ul></div>
             ))}
