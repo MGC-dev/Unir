@@ -75,11 +75,23 @@ const CAPS = [
 /** Examples only: each firm sets its own practice areas and services. */
 const AREAS = ['Family law', 'Personal injury', 'Immigration', 'Estate planning', 'Business law', 'Employment', 'Criminal defence', 'Real estate',
   'Wills & probate', 'Bankruptcy', 'Tax', 'Intellectual property', 'Landlord & tenant', 'Medical negligence', 'Debt recovery', 'Mediation']
+const AREA_ROWS = [AREAS.slice(0, 8), AREAS.slice(8)]
+
+/** The portal's own practice-area colours. */
+const AREA_COLOR: Record<string, string> = { 'Family law': '#7c3aed', 'Immigration': '#0f766e', 'Estate planning': '#4d7c0f', 'Business law': '#1d4ed8', 'Debt recovery': '#475569' }
+const SERVICES = [
+  { n: 'Initial consultation', a: 'Family law', p: '$250', k: 'Fixed' },
+  { n: 'Uncontested divorce', a: 'Family law', p: '$1,500', k: 'Fixed' },
+  { n: 'Work visa application', a: 'Immigration', p: '$2,000', k: 'From' },
+  { n: 'Will and living trust', a: 'Estate planning', p: '$650', k: 'Fixed' },
+  { n: 'LLC formation', a: 'Business law', p: '$900', k: 'Fixed' },
+  { n: 'Demand letter', a: 'Debt recovery', p: '$300', k: 'Fixed' },
+]
 
 const FITS = [
   { I: IconListDetails, t: 'Your services, your names', d: 'Add every service you offer, from a single consultation to a full matter, and price each one your way.' },
   { I: IconAdjustmentsHorizontal, t: 'The right questions for each', d: 'Custom fields per practice area, so an immigration enquiry and a divorce enquiry each capture what you need.' },
-  { I: IconChartBar, t: 'See what each one brings in', d: 'Reports by practice area and service show which work, and which lead sources, actually turn into clients.' },
+  { I: IconChartBar, t: 'See what each one brings in', d: 'Reports by practice area and service show which work, and which lead sources, turn into clients.' },
 ]
 
 const STEPS = [
@@ -185,21 +197,40 @@ export default function Landing() {
         </section>
 
         {/* practice areas and services */}
-        <section id="practice" className="lp-section">
-          <div className="lp-wrap lp-fit">
-            <div>
-              <Eyebrow>Practice areas</Eyebrow>
-              <h2>Fits every service your firm offers</h2>
-              <p className="lp-muted lp-fit__lead">Set up the practice areas and services you actually sell. A family firm, a busy PI practice and a full-service firm all run on the same portal.</p>
-            </div>
-            <ul className="lp-areas" aria-label="Examples of practice areas">
-              {AREAS.map(a => <li key={a}>{a}</li>)}
-              <li className="lp-areas__add"><IconPlus size={14} stroke={2.2} />Add your own</li>
+        <section id="practice" className="lp-section lp-fit">
+          <div className="lp-wrap lp-fit__head">
+            <Eyebrow>Practice areas</Eyebrow>
+            <h2>Fits every service your firm offers</h2>
+            <p className="lp-muted">A family firm, a busy PI practice and a full-service firm all run on the same portal. You set the practice areas and services; UNIR shapes intake around them.</p>
+          </div>
+
+          <div className="lp-rails" aria-label="Examples of practice areas">
+            {AREA_ROWS.map((row, r) => (
+              <div key={r} className={`lp-rail${r ? ' lp-rail--rev' : ''}`}>
+                <ul className="lp-rail__track">
+                  {[0, 1].map(k => row.map(a => <li key={k + a} aria-hidden={k === 1 || undefined}>{a}</li>))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <div className="lp-wrap lp-fit__body">
+            <figure className="lp-svc" aria-label="Preview of a firm's services list">
+              <div className="lp-svc__bar"><b>Services</b><span>{SERVICES.length + 18} services · 9 practice areas</span></div>
+              <ul>
+                {SERVICES.map(v => (
+                  <li key={v.n}>
+                    <span className="lp-svc__name">{v.n}<i style={{ background: AREA_COLOR[v.a] }}>{v.a}</i></span>
+                    <span className="lp-svc__price"><small>{v.k}</small>{v.p}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="lp-svc__add"><IconPlus size={15} stroke={2.2} />Add a service</div>
+            </figure>
+            <ul className="lp-fit__points">
+              {FITS.map(({ I, t, d }) => <li key={t}><span><I size={20} stroke={1.6} /></span><div><h3>{t}</h3><p>{d}</p></div></li>)}
             </ul>
           </div>
-          <div className="lp-wrap"><div className="lp-grid3">
-            {FITS.map(({ I, t, d }) => <div key={t} className="lp-cell"><I size={22} stroke={1.5} /><h3>{t}</h3><p>{d}</p></div>)}
-          </div></div>
         </section>
 
         {/* dark: integrations, security, support */}
