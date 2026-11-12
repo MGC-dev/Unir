@@ -39,12 +39,12 @@
   --color-popover-foreground: var(--foreground);
 }
 .ai-surface {
-  --background: #f3f6fb;
+  --background: #ffffff;
   --foreground: #1d1d1f;
   --card: #ffffff;
   --muted: #e9e9eb;
   --muted-foreground: #6e6e73;
-  --primary: #1f4fd8;
+  --primary: #0f2347;
   --primary-foreground: #ffffff;
   --secondary: #f2f2f7;
   --secondary-foreground: #1d1d1f;
@@ -54,7 +54,7 @@
   --destructive-foreground: #ffffff;
   --border: #e5e5ea;
   --input: #d1d1d6;
-  --ring: rgba(31, 79, 216, 0.4);
+  --ring: rgba(15, 35, 71, 0.4);
 }
 
 /* Tokens the shadcn-style Sidebar (src/components/ui/sidebar.tsx) reads, scoped to the app's ink sidebar. */
@@ -104,8 +104,8 @@ body { @apply bg-slate-50 text-slate-800 antialiased; }
   --color-ios-fill: #e9e9eb;
   --color-ios-field: rgba(118, 118, 128, 0.12);
   --color-ios-grouped: #f2f2f7;
-  --color-ios-accent: #1f4fd8;
-  --color-ios-accent-soft: #dce6fb;
+  --color-ios-accent: #0f2347;
+  --color-ios-accent-soft: #e3e8f1;
   --color-ios-green: #34c759;
   --color-ios-red: #d70015;
 }
@@ -117,7 +117,7 @@ body { @apply bg-slate-50 text-slate-800 antialiased; }
 @keyframes ai-orb-spin { to { transform: rotate(360deg); } }
 @keyframes ai-orb-spin-back { to { transform: rotate(-360deg); } }
 @keyframes ai-orb-float { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-3%) scale(1.03); } }
-@theme { --color-ios-page: #f3f6fb; }
+@theme { --color-ios-page: #ffffff; }
 /* shadcn components expect borders in the border colour by default (Tailwind 4 uses currentColor). */
 @layer base { .ai-surface *, .ai-surface ::before, .ai-surface ::after { border-color: var(--border); } }
 
@@ -144,6 +144,6 @@ body { @apply bg-slate-50 text-slate-800 antialiased; }
   border: 1.5px solid var(--input, #d1d1d6); background: var(--card, #fff); display: grid; place-content: center; cursor: pointer; transition: background-color .15s, border-color .15s;
 }
 .custom-checkbox::after { content: ''; width: 9px; height: 5px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px) scale(0); transition: transform .15s; }
-.custom-checkbox:checked { background: var(--primary, #1f4fd8); border-color: var(--primary, #1f4fd8); }
+.custom-checkbox:checked { background: var(--primary, #0f2347); border-color: var(--primary, #0f2347); }
 .custom-checkbox:checked::after { transform: rotate(-45deg) translate(1px, -1px) scale(1); }
-.custom-checkbox:focus-visible { outline: 2px solid var(--primary, #1f4fd8); outline-offset: 2px; }
+.custom-checkbox:focus-visible { outline: 2px solid var(--primary, #0f2347); outline-offset: 2px; }
