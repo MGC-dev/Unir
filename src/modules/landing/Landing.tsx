@@ -2,8 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   IconArrowRight, IconArrowUpRight, IconBrandGoogle, IconBrandLinkedin, IconBrandWindows, IconBrandX, IconBrandYoutube, IconBrandZapier,
-  IconCar, IconCheck, IconClockHour9, IconDeviceMobileMessage, IconForms, IconHandStop, IconHeartHandshake,
-  IconHome, IconLifebuoy, IconMenu2, IconMessage2, IconPhoneCall, IconPlane, IconPlus, IconScale, IconShieldLock, IconSignature, IconSparkles,
+  IconCheck, IconListDetails, IconAdjustmentsHorizontal, IconChartBar, IconClockHour9, IconDeviceMobileMessage, IconForms, IconHandStop,
+  IconLifebuoy, IconMenu2, IconMessage2, IconPhoneCall, IconPlus, IconScale, IconShieldLock, IconSignature, IconSparkles,
   IconX, IconAd2, IconMail,
 } from '@tabler/icons-react'
 import '@fontsource-variable/geist'
@@ -72,11 +72,14 @@ const CAPS = [
   { t: 'AI agents', d: 'Agents that answer after hours, sort new enquiries and draft the follow-up for you to approve.', art: <MiniAgent /> },
 ]
 
-const PRACTICES = [
-  { I: IconHeartHandshake, t: 'Family law', d: 'Divorce, custody and support enquiries that need a calm, quick first reply.' },
-  { I: IconCar, t: 'Personal injury', d: 'Calls from ads and call tracking, qualified and booked before they ring the next firm.' },
-  { I: IconPlane, t: 'Immigration', d: 'Long document lists and deadlines, kept in order for every client.' },
-  { I: IconHome, t: 'Estate planning', d: 'Consult-to-signature flows with reminders that don’t let a will sit unsigned.' },
+/** Examples only: each firm sets its own practice areas and services. */
+const AREAS = ['Family law', 'Personal injury', 'Immigration', 'Estate planning', 'Business law', 'Employment', 'Criminal defence', 'Real estate',
+  'Wills & probate', 'Bankruptcy', 'Tax', 'Intellectual property', 'Landlord & tenant', 'Medical negligence', 'Debt recovery', 'Mediation']
+
+const FITS = [
+  { I: IconListDetails, t: 'Your services, your names', d: 'Add every service you offer, from a single consultation to a full matter, and price each one your way.' },
+  { I: IconAdjustmentsHorizontal, t: 'The right questions for each', d: 'Custom fields per practice area, so an immigration enquiry and a divorce enquiry each capture what you need.' },
+  { I: IconChartBar, t: 'See what each one brings in', d: 'Reports by practice area and service show which work, and which lead sources, actually turn into clients.' },
 ]
 
 const STEPS = [
@@ -181,14 +184,22 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* practice areas */}
-        <section className="lp-section">
-          <div className="lp-wrap lp-head"><div><Eyebrow>Practice areas</Eyebrow><h2>Built for the way your practice takes on clients</h2></div></div>
-          <div className="lp-wrap lp-grid2">
-            {PRACTICES.map(({ I, t, d }) => (
-              <div key={t} className="lp-cell lp-cell--big"><I className="lp-cell__icon" size={44} stroke={1.2} /><h3>{t}</h3><p>{d}</p></div>
-            ))}
+        {/* practice areas and services */}
+        <section id="practice" className="lp-section">
+          <div className="lp-wrap lp-fit">
+            <div>
+              <Eyebrow>Practice areas</Eyebrow>
+              <h2>Fits every service your firm offers</h2>
+              <p className="lp-muted lp-fit__lead">Set up the practice areas and services you actually sell. A family firm, a busy PI practice and a full-service firm all run on the same portal.</p>
+            </div>
+            <ul className="lp-areas" aria-label="Examples of practice areas">
+              {AREAS.map(a => <li key={a}>{a}</li>)}
+              <li className="lp-areas__add"><IconPlus size={14} stroke={2.2} />Add your own</li>
+            </ul>
           </div>
+          <div className="lp-wrap"><div className="lp-grid3">
+            {FITS.map(({ I, t, d }) => <div key={t} className="lp-cell"><I size={22} stroke={1.5} /><h3>{t}</h3><p>{d}</p></div>)}
+          </div></div>
         </section>
 
         {/* dark: integrations, security, support */}
@@ -266,7 +277,7 @@ export default function Landing() {
           <div className="lp-foot__cols">
             {[
               ['Product', [['Pipeline', '#product'], ['Campaigns', '#product'], ['Calendar', '#product'], ['AI agents', '#product']]],
-              ['Practice areas', [['Family law', '#'], ['Personal injury', '#'], ['Immigration', '#'], ['Estate planning', '#']]],
+              ['For firms', [['Practice areas', '#practice'], ['Services', '#practice'], ['Lead sources', '#integrations'], ['Security', '#integrations']]],
               ['Company', [['How it works', '#how'], ['Integrations', '#integrations'], ['FAQ', '#faq'], ['Contact', '#cta']]],
               ['Account', [['Sign in', '/sign-in'], ['Create account', '/sign-in?create'], ['Reset password', '/sign-in?reset'], ['Open the demo', '/']]],
             ].map(([h, links]) => (
