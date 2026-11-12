@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import '@fontsource-variable/plus-jakarta-sans'
@@ -25,10 +25,14 @@ import Integrations from './modules/integrations/Integrations'
 import Services from './modules/services/Services'
 import Settings from './modules/settings/Settings'
 
+// the public landing page loads on its own, so the portal doesn't carry it
+const Landing = lazy(() => import('./modules/landing/Landing'))
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
+        <Route path="welcome" element={<Suspense fallback={null}><Landing /></Suspense>} />
         <Route element={<AppShell />}>
           <Route index element={<Dashboard />} />
           <Route path="pipeline" element={<Pipeline />} />
