@@ -9,6 +9,13 @@ import {
 import '@fontsource-variable/geist'
 import { HalftoneU } from '../../shared/HalftoneU'
 import './landing.css'
+import callrailLogo from './logos/callrail.svg'
+import ringcentralLogo from './logos/ringcentral.svg'
+import zapierLogo from './logos/zapier.svg'
+import googleAdsLogo from './logos/google-ads.svg'
+import googleCalendarLogo from './logos/google-calendar.svg'
+import outlookLogo from './logos/outlook.svg'
+import gmailLogo from './logos/gmail.svg'
 
 /* ------------------------------------------------------------------ small parts */
 
@@ -21,9 +28,16 @@ const Mark = () => (
 )
 const Logo = () => <Link to="/welcome" className="lp-logo"><Mark /><span>UNIR</span></Link>
 
-const SOURCES: [typeof IconForms, string][] = [
-  [IconForms, 'Website forms'], [IconAd2, 'Google Ads'], [IconPhoneCall, 'CallRail'], [IconBrandZapier, 'Zapier'],
-  [IconDeviceMobileMessage, 'RingCentral'], [IconBrandGoogle, 'Google Calendar'], [IconBrandWindows, 'Microsoft Outlook'], [IconMail, 'Email'],
+/** Where leads come from, with each company's own logo. Wordmarks carry the name; icon logos sit beside it. */
+const SOURCES: { name: string; logo?: string; wordmark?: boolean }[] = [
+  { name: 'Website forms' },
+  { name: 'Google Ads', logo: googleAdsLogo },
+  { name: 'CallRail', logo: callrailLogo, wordmark: true },
+  { name: 'Zapier', logo: zapierLogo, wordmark: true },
+  { name: 'RingCentral', logo: ringcentralLogo, wordmark: true },
+  { name: 'Google Calendar', logo: googleCalendarLogo },
+  { name: 'Microsoft Outlook', logo: outlookLogo },
+  { name: 'Gmail', logo: gmailLogo },
 ]
 
 /* ------------------------------------------------------------------ capability cards (drawn, not photographed) */
@@ -161,7 +175,12 @@ export default function Landing() {
         <section className="lp-strip" aria-label="Where leads come from">
           <p className="lp-wrap lp-strip__lead">Leads arrive from the tools <b>your firm already uses</b></p>
           <div className="lp-marquee"><div className="lp-marquee__track">
-            {[0, 1].map(k => SOURCES.map(([I, n]) => <span key={k + n} aria-hidden={k === 1 || undefined}><I size={20} stroke={1.6} />{n}</span>))}
+            {[0, 1].map(k => SOURCES.map(({ name, logo, wordmark }) => (
+              <span key={k + name} aria-hidden={k === 1 || undefined} className={wordmark ? 'is-wordmark' : undefined}>
+                {logo ? <img src={logo} alt={wordmark ? name : ''} /> : <IconForms size={22} stroke={1.6} />}
+                {!wordmark && name}
+              </span>
+            )))}
           </div></div>
         </section>
 
