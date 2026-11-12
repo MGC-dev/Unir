@@ -116,7 +116,6 @@ export const SignInPage: React.FC<SignInPageProps> = ({
               {mode === 'create' && (
                 <>
                   <Field label="Your name" delay="animate-delay-300"><input name="name" required autoComplete="name" placeholder="Sarah Mitchell" className={inputCls} /></Field>
-                  <Field label="Firm name" delay="animate-delay-300"><input name="firm" required autoComplete="organization" placeholder="Mitchell Family Law" className={inputCls} /></Field>
                 </>
               )}
               <Field label="Email address" delay="animate-delay-300">
@@ -134,8 +133,8 @@ export const SignInPage: React.FC<SignInPageProps> = ({
                 </div>
               )}
 
-              <button type="submit" className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 active:scale-[.99] transition">
-                {mode === 'create' ? 'Create workspace' : mode === 'reset' ? 'Send reset link' : 'Sign in'}
+              <button type="submit" className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-[#1a3566] active:scale-[.99] transition">
+                {mode === 'create' ? 'Create account' : mode === 'reset' ? 'Send reset link' : 'Sign in'}
               </button>
             </form>
 

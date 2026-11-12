@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { IconBellRinging, IconCalendarEvent, IconSignature } from '@tabler/icons-react'
 import '@fontsource-variable/geist'
 import { SignInPage, type SignInMode } from '@/components/ui/sign-in'
 import { HalftoneU } from '../../shared/HalftoneU'
 
+/** White page; buttons and links in the sidebar's navy. */
+const SURFACE = { '--background': '#ffffff', '--primary': '#0f2347', '--ring': 'rgba(15,35,71,.35)' } as CSSProperties
+
 const COPY: Record<SignInMode, { title: string; description: string }> = {
   'sign-in': { title: 'Welcome back', description: 'Sign in to your firm’s workspace to pick up every enquiry where you left it.' },
-  create: { title: 'Create your workspace', description: 'Set up UNIR for your firm. You can invite your team once you’re in.' },
+  create: { title: 'Create your account', description: 'Start with your own details. You’ll add your firm and invite your team next.' },
   reset: { title: 'Reset your password', description: 'Enter the email you sign in with and we’ll send you a link to choose a new password.' },
 }
 
@@ -30,7 +33,7 @@ const Aside = () => (
 )
 
 /**
- * Sign in, create a workspace, or reset a password. `?create` and `?reset` open those modes.
+ * Sign in, create an account, or reset a password. The firm's details are asked for in onboarding, not here. `?create` and `?reset` open those modes.
  * Not wired to real accounts yet: signing in opens the demo portal.
  */
 export default function SignIn() {
@@ -45,7 +48,7 @@ export default function SignIn() {
   const go = (m: SignInMode) => navigate(m === 'sign-in' ? '/sign-in' : `/sign-in?${m}`)
 
   return (
-    <div className="ai-surface">
+    <div className="ai-surface" style={SURFACE}>
       <SignInPage
         key={mode}
         mode={mode}

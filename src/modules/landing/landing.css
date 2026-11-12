@@ -37,11 +37,11 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 80px; }
 
 /* buttons */
 .lp-btn {
-  display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 999px; border: 1px solid var(--lp-ink);
-  background: var(--lp-ink); color: #fff; font-size: 15px; font-weight: 500; cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 999px; border: 1px solid var(--lp-navy);
+  background: var(--lp-navy); color: #fff; font-size: 15px; font-weight: 500; cursor: pointer; white-space: nowrap;
   transition: transform .15s ease, background-color .15s ease, color .15s ease;
 }
-.lp-btn:hover { background: var(--lp-navy); border-color: var(--lp-navy); }
+.lp-btn:hover { background: #1a3566; border-color: #1a3566; }
 .lp-btn:active { transform: scale(.98); }
 .lp-btn--sm { height: 38px; padding: 0 16px; font-size: 14px; }
 .lp-btn--ghost { background: transparent; color: var(--lp-ink); border-color: var(--lp-line); }
