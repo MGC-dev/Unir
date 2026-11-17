@@ -18,3 +18,39 @@ export type PaymentStatus = 'completed' | 'pending' | 'failed' | 'refunded'
 export interface Payment { id:string; reference:string; invoiceId:string; invoiceNumber:string; customerName:string; date:number; method:'Card'|'Bank transfer'|'Check'|'Cash'|'Other'; amount:number; currency:BillingCurrency; status:PaymentStatus; transactionId?:string; note?:string; createdBy:string }
 export interface PaymentPlan { id:string; name:string; customerName:string; invoiceId:string; invoiceNumber:string; total:number; currency:BillingCurrency; downPayment:number; installmentAmount:number; frequency:'Monthly'|'Biweekly'|'Weekly'; startDate:number; status:'Active'|'Completed'|'Paused'; createdBy:string }
 export interface Installment { id:string; planId:string; invoiceNumber:string; customerName:string; dueDate:number; amount:number; paid:number; status:'Upcoming'|'Due'|'Partially paid'|'Paid'|'Overdue'|'Rescheduled' }
+
+
+export type RefundStatus = 'Requested' | 'Processing' | 'Completed' | 'Failed' | 'Cancelled'
+export interface Refund {
+  id: string
+  reference: string
+  paymentId: string
+  paymentReference: string
+  invoiceId: string
+  invoiceNumber: string
+  customerName: string
+  date: number
+  amount: number
+  currency: BillingCurrency
+  reason: string
+  method: 'Original payment method' | 'Manual'
+  status: RefundStatus
+  createdBy: string
+  note?: string
+}
+
+export interface ConsolidatedInvoice {
+  id: string
+  number: string
+  customerName: string
+  customerEmail: string
+  currency: BillingCurrency
+  sourceInvoiceIds: string[]
+  sourceInvoiceNumbers: string[]
+  items: Array<{ id: string; description: string; sourceInvoiceNumber: string; quantity: number; unitPrice: number }>
+  subtotal: number
+  total: number
+  createdAt: number
+  createdBy: string
+  status: 'Draft' | 'Issued' | 'Voided'
+}

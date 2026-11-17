@@ -13,6 +13,8 @@ export const VIEWS: View[] = [
   { id: 'billing-payments', path: '/billing/payments', label: 'Payments', icon: 'billing-payment', sub: 'Record and review client payments.' },
   { id: 'billing-plans', path: '/billing/payment-plans', label: 'Payment Plans', icon: 'billing-plan', sub: 'Manage agreed payment arrangements.' },
   { id: 'billing-installments', path: '/billing/installments', label: 'Installments', icon: 'billing-installment', sub: 'Track scheduled installments and due dates.' },
+  { id: 'billing-refunds', path: '/billing/refunds', label: 'Refunds', icon: 'billing-refund', sub: 'Manage full and partial refunds linked to original payments.' },
+  { id: 'billing-consolidated', path: '/billing/consolidated-invoices', label: 'Consolidated Invoices', icon: 'billing-consolidated', sub: 'Combine eligible unpaid invoices for the same customer.' },
   { id: 'billing', path: '/billing', label: 'Billing Overview', icon: 'billing-overview', sub: 'Invoices, collections and financial activity for your organization.' },
   { id: 'documents', path: '/documents', label: 'Documents', icon: 'folder', sub: 'Engagement letters, their signing status, and the templates they come from.' },
   { id: 'reports', path: '/reports', label: 'Reports', icon: 'reports', sub: 'Where leads come from, what converts, and why leads are lost.' },
@@ -28,7 +30,7 @@ export const NAV: { label: string; ids: string[] }[] = [
   { label: 'Workspace', ids: ['dashboard', 'pipeline', 'leads', 'contacts', 'calendar', 'tasks'] },
   { label: 'Outreach', ids: ['messages', 'campaigns'] },
   { label: 'Records', ids: ['documents', 'reports'] },
-  { label: 'Finance', ids: ['billing', 'billing-invoices', 'billing-payments', 'billing-plans', 'billing-installments'] },
+  { label: 'Finance', ids: ['billing', 'billing-invoices', 'billing-payments', 'billing-plans', 'billing-installments', 'billing-refunds', 'billing-consolidated'] },
   { label: 'Intelligence', ids: ['chat', 'bots'] },
   { label: 'Firm', ids: ['services', 'integrations', 'settings'] },
 ]

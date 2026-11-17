@@ -503,3 +503,22 @@ table th {
 }
 .billing-plan-warning svg { flex: 0 0 auto; margin-top: 1px; }
 .portal .sheet-head__title .footnote{font-size: 10.5px;}
+
+
+/* Refunds and consolidated invoice pages */
+.billing-switch{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;white-space:nowrap}
+.billing-switch input{width:17px;height:17px;accent-color:var(--accent)}
+.billing-consolidation-disabled{display:flex;align-items:flex-start;gap:13px;padding:20px;color:var(--muted-foreground);font-size:13px}
+.billing-consolidation-disabled b{display:block;color:var(--foreground);margin-bottom:4px}
+.billing-consolidation-disabled p{margin:0;line-height:1.5}
+.billing-consolidation-group{border-top:1px solid var(--border)}
+.billing-consolidation-group__head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;font-size:13px}
+.billing-consolidation-group__head span{color:var(--muted-foreground);font-size:12px}
+.billing-consolidation-group input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
+.billing-consolidation-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;border-top:1px solid var(--border);background:var(--muted)}
+.billing-consolidation-footer>div{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted-foreground)}
+.billing-consolidation-footer b{font-size:20px;color:var(--foreground)}
+.billing-consolidation-footer small{font-size:11px}
+.billing-consolidation-error,.billing-consolidation-notice{margin:0;padding:0 18px 14px;font-size:12px}
+.billing-consolidation-notice{color:var(--success,var(--foreground))}
+@media(max-width:650px){.billing-consolidation-footer{align-items:stretch;flex-direction:column}.billing-consolidation-group__head{align-items:flex-start;flex-direction:column}}

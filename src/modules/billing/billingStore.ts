@@ -9,10 +9,13 @@ const seed:Invoice[]=[
 ]
 const seedPayments:Payment[]=[{id:'pay_01',reference:'PAY-0001',invoiceId:'inv_1001',invoiceNumber:'INV-1001',customerName:'John Smith',date:now-2*day,method:'Card',amount:2500,currency:'USD',status:'completed',transactionId:'TXN-DEMO-1001',createdBy:'Alex Morgan'},{id:'pay_02',reference:'PAY-0002',invoiceId:'inv_1002',invoiceNumber:'INV-1002',customerName:'Sarah Wilson',date:now-1*day,method:'Bank transfer',amount:500,currency:'USD',status:'completed',transactionId:'TXN-DEMO-1002',createdBy:'Jordan Lee'}]
 let invoices=loadInvoices(), payments=load('payments',seedPayments) as Payment[], plans=load('plans',[{id:'plan_01',name:'Sarah Wilson - Monthly Plan',customerName:'Sarah Wilson',invoiceId:'inv_1002',invoiceNumber:'INV-1002',total:1800,currency:'USD',downPayment:500,installmentAmount:325,frequency:'Monthly',startDate:now-1*day,status:'Active',createdBy:'Jordan Lee'}] as PaymentPlan[]), installments=load('installments',[{id:'ins_01',planId:'plan_01',invoiceNumber:'INV-1002',customerName:'Sarah Wilson',dueDate:now+29*day,amount:325,paid:0,status:'Upcoming'},{id:'ins_02',planId:'plan_01',invoiceNumber:'INV-1002',customerName:'Sarah Wilson',dueDate:now+59*day,amount:325,paid:0,status:'Upcoming'}] as Installment[])
+let refunds=load('refunds',[] as import('./types').Refund[])
+let consolidatedInvoices=load('consolidated-invoices',[] as import('./types').ConsolidatedInvoice[])
+let consolidationEnabled=load('consolidation-enabled',false)
 let version=0; const listeners=new Set<()=>void>();
 function loadInvoices():Invoice[]{try{const x=localStorage.getItem(STORAGE_KEY)??localStorage.getItem('unir-billing-frontend-v1');if(x){const p=JSON.parse(x);if(Array.isArray(p))return p.map((v:any)=>({...v,lateFeeAmount:v.lateFeeAmount??0,lateFeeRule:v.lateFeeRule??'Not configured',createdBy:v.createdBy??'Previously created',updatedBy:v.updatedBy??'Previously updated',activity:v.activity??[{id:uid('act'),action:'Imported from previous billing preview',by:'System',at:v.createdAt??Date.now()}]}))}}catch{} return structuredClone(seed)}
 function load<T>(key:string,fallback:T):T{try{const x=localStorage.getItem(`${STORAGE_KEY}-${key}`);if(x)return JSON.parse(x) as T}catch{}return structuredClone(fallback)}
-function commit(){version++;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(invoices));localStorage.setItem(`${STORAGE_KEY}-payments`,JSON.stringify(payments));localStorage.setItem(`${STORAGE_KEY}-plans`,JSON.stringify(plans));localStorage.setItem(`${STORAGE_KEY}-installments`,JSON.stringify(installments))}catch{}listeners.forEach(f=>f())}
+function commit(){version++;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(invoices));localStorage.setItem(`${STORAGE_KEY}-payments`,JSON.stringify(payments));localStorage.setItem(`${STORAGE_KEY}-plans`,JSON.stringify(plans));localStorage.setItem(`${STORAGE_KEY}-installments`,JSON.stringify(installments));localStorage.setItem(`${STORAGE_KEY}-refunds`,JSON.stringify(refunds));localStorage.setItem(`${STORAGE_KEY}-consolidated-invoices`,JSON.stringify(consolidatedInvoices));localStorage.setItem(`${STORAGE_KEY}-consolidation-enabled`,JSON.stringify(consolidationEnabled))}catch{}listeners.forEach(f=>f())}
 const uid=(p:string)=>`${p}_${Math.random().toString(36).slice(2,9)}`
 function buildInstallmentSchedule(plan:PaymentPlan,alreadyPaid:number):Installment[]{
  const remaining=Math.max(0,plan.total-plan.downPayment-alreadyPaid);
@@ -52,8 +55,48 @@ export const billingStore={get:()=>invoices,getPayments:()=>payments,getPlans:()
   installments=[...created,...installments.filter(x=>x.planId!==id),...preserved];
   commit();return revised
  },
+ getRefunds:()=>refunds,
+ getConsolidatedInvoices:()=>consolidatedInvoices,
+ isConsolidationEnabled:()=>consolidationEnabled,
+ setConsolidationEnabled(value:boolean){consolidationEnabled=value;commit()},
+ createRefund(input:Omit<import('./types').Refund,'id'|'reference'|'paymentReference'|'invoiceId'|'invoiceNumber'|'customerName'|'currency'|'createdBy'> & {paymentId:string}){
+  const payment=payments.find(x=>x.id===input.paymentId);
+  if(!payment||payment.status==='failed'||payment.status==='pending')return;
+  const alreadyRefunded=refunds.filter(x=>x.paymentId===payment.id&&x.status!=='Failed'&&x.status!=='Cancelled').reduce((sum,x)=>sum+x.amount,0);
+  const refundable=Math.max(0,payment.amount-alreadyRefunded);
+  if(input.amount<=0||input.amount>refundable||!input.reason.trim())return;
+  const inv=invoices.find(x=>x.id===payment.invoiceId);
+  if(!inv)return;
+  const refund:import('./types').Refund={...input,id:uid('ref'),reference:`REF-${String(refunds.length+1).padStart(4,'0')}`,paymentReference:payment.reference,invoiceId:payment.invoiceId,invoiceNumber:payment.invoiceNumber,customerName:payment.customerName,currency:payment.currency,createdBy:'Current user'};
+  refunds=[refund,...refunds];
+  if(refund.status==='Completed'){
+   const totalRefunded=alreadyRefunded+refund.amount;
+   if(totalRefunded>=payment.amount){payments=payments.map(x=>x.id===payment.id?{...x,status:'refunded'}:x)}
+   const newPaid=Math.max(0,inv.amountPaid-refund.amount);
+   const t=Date.now();
+   invoices=invoices.map(x=>x.id===inv.id?{...x,amountPaid:newPaid,balanceDue:Math.max(0,x.total-newPaid),status:newPaid>=x.total?'paid':newPaid>0?'partially_paid':'sent',updatedAt:t,updatedBy:'Current user',activity:[{id:uid('act'),action:'Refund recorded',by:'Current user',at:t,detail:`${refund.reference} · ${refund.amount.toFixed(2)}`},...x.activity]}:x)
+  }
+  commit();return refund
+ },
+ createConsolidatedInvoice(sourceIds:string[]){
+  if(!consolidationEnabled||sourceIds.length<2)return;
+  const selected=sourceIds.map(id=>invoices.find(x=>x.id===id)).filter((x):x is Invoice=>!!x);
+  if(selected.length!==sourceIds.length)return;
+  const first=selected[0];
+  if(selected.some(x=>x.customerName!==first.customerName||x.currency!==first.currency||x.balanceDue!==x.total||x.amountPaid!==0||x.status==='void'))return;
+  if(consolidatedInvoices.some(x=>x.sourceInvoiceIds.some(id=>sourceIds.includes(id))))return;
+  const now=Date.now();
+  const items=selected.flatMap(inv=>inv.items.map(item=>({id:uid('cit'),description:item.description,sourceInvoiceNumber:inv.number,quantity:item.quantity,unitPrice:item.unitPrice})));
+  const subtotal=items.reduce((sum,item)=>sum+item.quantity*item.unitPrice,0);
+  const record:import('./types').ConsolidatedInvoice={id:uid('cinv'),number:`CINV-${String(consolidatedInvoices.length+1).padStart(4,'0')}`,customerName:first.customerName,customerEmail:first.customerEmail,currency:first.currency,sourceInvoiceIds:selected.map(x=>x.id),sourceInvoiceNumbers:selected.map(x=>x.number),items,subtotal,total:subtotal,createdAt:now,createdBy:'Current user',status:'Draft'};
+  consolidatedInvoices=[record,...consolidatedInvoices];commit();return record
+ },
 }
 export function useInvoices(){useSyncExternalStore(billingStore.subscribe,billingStore.version);return billingStore.get()}
 export function usePayments(){useSyncExternalStore(billingStore.subscribe,billingStore.version);return billingStore.getPayments()}
 export function usePlans(){useSyncExternalStore(billingStore.subscribe,billingStore.version);return billingStore.getPlans()}
 export function useInstallments(){useSyncExternalStore(billingStore.subscribe,billingStore.version);return billingStore.getInstallments()}
+
+export function useRefunds(){useSyncExternalStore(billingStore.subscribe,billingStore.version);return billingStore.getRefunds()}
+export function useConsolidatedInvoices(){useSyncExternalStore(billingStore.subscribe,billingStore.version);return billingStore.getConsolidatedInvoices()}
+export function useConsolidationEnabled(){useSyncExternalStore(billingStore.subscribe,billingStore.version);return billingStore.isConsolidationEnabled()}

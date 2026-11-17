@@ -24,6 +24,8 @@ import InvoiceDetail from './modules/billing/InvoiceDetail'
 import Payments from './modules/billing/Payments'
 import PaymentPlans from './modules/billing/PaymentPlans'
 import Installments from './modules/billing/Installments'
+import Refunds from './modules/billing/Refunds'
+import ConsolidatedInvoices from './modules/billing/ConsolidatedInvoices'
 import Documents from './modules/documents/Documents'
 import DocumentDetail from './modules/documents/DocumentDetail'
 import Reports from './modules/reports/Reports'
@@ -53,6 +55,8 @@ createRoot(document.getElementById('root')!).render(
           <Route path="billing/payments" element={<Payments />} />
           <Route path="billing/payment-plans" element={<PaymentPlans />} />
           <Route path="billing/installments" element={<Installments />} />
+          <Route path="billing/refunds" element={<Refunds />} />
+          <Route path="billing/consolidated-invoices" element={<ConsolidatedInvoices />} />
           <Route path="documents" element={<Documents />} />
           <Route path="documents/:id" element={<DocumentDetail />} />
           <Route path="reports" element={<Reports />} />

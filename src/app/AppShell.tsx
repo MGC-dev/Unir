@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconReceipt2, IconFileInvoice, IconCreditCard, IconCalendarDollar, IconListDetails } from '@tabler/icons-react'
+import { IconReceipt2, IconFileInvoice, IconCreditCard, IconCalendarDollar, IconListDetails, IconReceiptRefund, IconFiles } from '@tabler/icons-react'
 import { Outlet, matchPath, useHref, useLocation, useNavigate } from 'react-router-dom'
 import { Sidebar, SidebarFooter, SidebarHeader, SidebarItem, SidebarNav, SidebarSection, SidebarToggle, useSidebar } from '@/components/ui/sidebar'
 import { tasksApi, firmApi, leadsApi, useQuery } from '../api'
@@ -25,6 +25,8 @@ const FINANCE_NAV_ICONS: Record<string, React.ReactNode> = {
   'billing-payment': <IconCreditCard size={19} stroke={1.8} />,
   'billing-plan': <IconCalendarDollar size={19} stroke={1.8} />,
   'billing-installment': <IconListDetails size={19} stroke={1.8} />,
+  'billing-refund': <IconReceiptRefund size={19} stroke={1.8} />,
+  'billing-consolidated': <IconFiles size={19} stroke={1.8} />,
 }
 
 function useViewId() {
