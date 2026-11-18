@@ -5,6 +5,8 @@ export type SourceId = 'web' | 'email' | 'text' | 'manual' | 'referral' | 'ads'
 export type ActivityType = 'enquiry' | 'auto' | 'text' | 'email' | 'call' | 'meeting' | 'doc' | 'signed' | 'stage' | 'reminder' | 'lost'
 
 export interface Activity {
+  /** Set once saved to the server. */
+  id?: string
   t: number
   type: ActivityType
   /** '' normal, 'auto' sent by automation, 'good' positive milestone, 'bad' held/failed/lost */
@@ -19,6 +21,8 @@ export interface SentItem { templateId: string; name: string; values: Record<str
 
 /** The documents sent to a lead for signature (a packet; signing completes all of them together). */
 export interface EngagementDoc {
+  /** Set once saved to the server. */
+  id?: string
   status: 'sent' | 'signed'
   sent: number
   signed?: number
@@ -98,6 +102,33 @@ export interface Firm {
   number: string
   domainStatus: 'unverified' | 'pending' | 'verified'
   textStatus: 'unregistered' | 'review' | 'registered'
+  /** DNS records to add at the domain host, each with its own status (live mode). */
+  domainRecords?: DnsRecord[]
+  domainCheckedAt?: number
+  /** The design wrapped around every email the firm sends (Settings → Email design). */
+  brand?: FirmBrand
+}
+
+export interface DnsRecord {
+  /** "SPF", "DKIM", "DMARC" */
+  record: string
+  type: string
+  /** Relative to the domain: "send" means send.yourfirm.com. */
+  name: string
+  value: string
+  priority?: number
+  /** not_started, pending, verified, failed, temporary_failure */
+  status: string
+}
+
+export interface FirmBrand {
+  /** Public https link to the logo. */
+  logoUrl?: string
+  /** "#RRGGBB" */
+  color: string
+  signature: string
+  /** Small print at the bottom, usually the firm's address. */
+  footer: string
 }
 
 export type CampaignChannel = 'Text' | 'Email' | 'Text and Email'
@@ -128,6 +159,8 @@ export interface Campaign {
   metric?: SurveyMetric
   /** Inputs added to this campaign beyond the built-in first name, matter and firm name. */
   tags?: CampaignTag[]
+  /** The folder it is filed in; none means Unfiled. */
+  folderId?: string
   name: string
   channel: CampaignChannel
   steps: number
@@ -143,16 +176,35 @@ export interface Campaign {
   sentAt?: number
 }
 
+/** A saved message people reuse: in campaigns, or when texting or emailing one lead. Uses the same inputs as campaigns. */
+export type TemplateChannel = 'Text' | 'Email'
+export interface MessageTemplate {
+  id: string
+  name: string
+  channel: TemplateChannel
+  /** Email only. */
+  subject?: string
+  body: string
+  /** Inputs added to this template beyond the built-in first name, matter and firm name. */
+  tags?: CampaignTag[]
+  createdAt: number
+  updatedAt: number
+  updatedBy: string
+}
+
+/** A folder for organising campaigns. Each campaign is in at most one folder. */
+export interface CampaignFolder { id: string; name: string; createdAt: number }
+
 export interface SendProgress { id: string; total: number; done: number }
 
 export interface TeamMember { name: string; role: string; permission: 'Admin' | 'Member' }
 
 export interface NewLeadInput {
-  name: string; phone?: string; practice: string; matter: string; value?: number; note?: string
+  name: string; phone?: string; email?: string; practice: string; matter: string; value?: number; note?: string
 }
 export interface NewCampaignInput {
   kind: CampaignKind; name: string; channel: CampaignChannel; subject?: string; body: string
-  audience?: AudienceKey; trigger?: string; metric?: SurveyMetric; draft?: boolean; tags?: CampaignTag[]
+  audience?: AudienceKey; trigger?: string; metric?: SurveyMetric; draft?: boolean; tags?: CampaignTag[]; folderId?: string
 }
 
 /** Metadata the UI needs to render forms and labels. Served by the backend as configuration. */
@@ -251,6 +303,34 @@ export interface Bot {
   createdAt: number
   updatedAt: number
   updatedBy: string
+  /** Running by itself on a schedule and emailing the result. */
+  schedule?: BotSchedule
+  lastRunAt?: number
+}
+
+/** When an agent runs by itself, and who gets the result by email. */
+export interface BotSchedule {
+  enabled: boolean
+  /** 0 = Sunday … 6 = Saturday */
+  days: number[]
+  /** Local time, "HH:MM". */
+  time: string
+  /** IANA time zone, e.g. Africa/Johannesburg. */
+  tz: string
+  /** Team members (by name) who get the result by email. */
+  to: string[]
+}
+
+/** One time an agent ran by itself (on its schedule, or with Run now). */
+export interface BotRun {
+  id: string
+  at: number
+  trigger: 'schedule' | 'manual'
+  status: 'done' | 'failed'
+  output: string
+  recipients: string[]
+  emailStatus: 'none' | 'sent' | 'held' | 'failed'
+  error?: string
 }
 
 /** A change the assistant proposes to make in the portal. It only happens once the person approves it. */

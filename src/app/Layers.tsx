@@ -9,11 +9,12 @@ import { PickServicesModal } from '../modules/lead/PickServicesModal'
 import { RequestPaymentModal } from '../modules/lead/RequestPaymentModal'
 import { ClientSignModal, ComposeModal, IntakeModal, LostModal, ReminderModal } from '../modules/lead/LeadModals'
 import { CampaignBuilder } from '../modules/campaigns/CampaignBuilder'
+import { TemplateEditor } from '../modules/campaigns/TemplateEditor'
 import { AccountSheet } from './AccountSheets'
 
 /** Everything that floats above the page: the lead inspector and the dialogs. */
 export function Layers() {
-  const { open, profile, service, serviceEdit, modal, openLead, openProfile, openService, openModal } = useUi()
+  const { open, profile, profileEdit, service, serviceEdit, modal, openLead, openProfile, openService, openModal } = useUi()
   const leads = useQuery(() => leadsApi.list())
   const services = useQuery(() => servicesApi.list())
   const lead = (id?: string) => leads?.find(l => l.id === id)
@@ -49,9 +50,10 @@ export function Layers() {
       case 'send-docs': sheet = l && <SendDocumentsModal lead={l} />; break
       case 'request-payment': sheet = l && <RequestPaymentModal lead={l} />; break
       case 'pick-services': sheet = l && <PickServicesModal lead={l} next={modal.next} />; break
-      case 'newcamp': sheet = <CampaignBuilder kind={modal.kind} />; break
+      case 'newcamp': sheet = <CampaignBuilder kind={modal.kind} folderId={modal.folderId} />; break
+      case 'template': sheet = <TemplateEditor id={modal.template} />; break
       default: sheet = <AccountSheet kind={modal.type} />
     }
   }
-  return <div>{serviced && <ServicePanel key={serviced.id} service={serviced} startEditing={serviceEdit} />}{profiled && <LeadProfile lead={profiled} />}{inspected && <LeadInspector lead={inspected} />}{sheet}</div>
+  return <div>{serviced && <ServicePanel key={serviced.id} service={serviced} startEditing={serviceEdit} />}{profiled && <LeadProfile key={profiled.id} lead={profiled} startEditing={profileEdit} />}{inspected && <LeadInspector lead={inspected} />}{sheet}</div>
 }

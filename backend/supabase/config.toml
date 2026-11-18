@@ -1,0 +1,24 @@
+# Supabase CLI settings for the portal's backend. `supabase link --project-ref <ref>` connects this folder to the
+# hosted project; `supabase db push` applies the migrations and `supabase functions deploy` ships the functions.
+project_id = "mgc-lead-portal"
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/**"]
+# Invite only: MGC onboards firms, and firm admins invite their team.
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+
+# Resend calls this webhook without a Supabase login; it checks Resend's signature instead.
+[functions.resend-webhook]
+verify_jwt = false
+
+# The scheduler (pg_cron) calls this with its own secret; signed-in people call it with their login.
+[functions.run-agent]
+verify_jwt = false
+
+# Email programs call this from their Unsubscribe button, with the lead's token instead of a login.
+[functions.unsubscribe]
+verify_jwt = false

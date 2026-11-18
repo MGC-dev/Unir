@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { campaignsApi, servicesApi, useQuery } from '../../api'
+import { campaignFoldersApi, campaignsApi, servicesApi, templatesApi, useQuery } from '../../api'
 import type { AudienceKey, CampaignChannel, CampaignTag, SurveyMetric } from '../../api/types'
 import { surveyBody } from '../../api/mockData'
 import { useUi } from '../../app/UiContext'
@@ -12,12 +12,14 @@ import { InputsPicker } from './InputsPicker'
 import { AUDIENCES, TRIGGERS, fillIn, insertTag, useFirm } from './campaignUtils'
 
 /** New campaign dialog with a live preview of the text or email, as the recipient will see it. */
-export function CampaignBuilder({ kind: initialKind }: { kind: 'auto' | 'broadcast' | 'survey' }) {
+export function CampaignBuilder({ kind: initialKind, folderId: initialFolder }: { kind: 'auto' | 'broadcast' | 'survey'; folderId?: string }) {
   const { openModal } = useUi()
   const firm = useFirm()
   const catalog = useQuery(() => servicesApi.list())
   const navigate = useNavigate()
   const [kind, setKind] = useState(initialKind)
+  const folders = useQuery(() => campaignFoldersApi.list())
+  const [folder, setFolder] = useState(initialFolder ?? 'none')
   const [metric, setMetric] = useState<SurveyMetric>('nps')
   const [tags, setTags] = useState<CampaignTag[]>([])
   const [name, setName] = useState(initialKind === 'auto' ? 'Lost Lead Check-In' : 'Free Consultation Week')
@@ -29,6 +31,17 @@ export function CampaignBuilder({ kind: initialKind }: { kind: 'auto' | 'broadca
     ? 'Hi {first}, we are sorry we could not help with your {matter} this time. If anything changes, we are here. {firm}'
     : 'Hi {first}, this week {firm} is offering free 20-minute consultations. Reply YES and we will call you to book a time.')
   const ta = useRef<HTMLTextAreaElement>(null)
+  const templates = useQuery(() => templatesApi.list())
+  const [template, setTemplate] = useState('none')
+  /** Starts the message from a saved template: its text, subject, inputs and channel. */
+  const applyTemplate = (id: string) => {
+    setTemplate(id)
+    const x = templates?.find(t => t.id === id)
+    if (!x) return
+    setBody(x.body); setTags(x.tags ?? [])
+    if (x.channel === 'Email') { setSubject(x.subject ?? ''); if (!/Email/.test(channel)) setChannel('Email') }
+    else if (!/Text/.test(channel)) setChannel('Text')
+  }
   const aud = useQuery(() => campaignsApi.audience(audience), [audience])
   const counts = useQuery(async () => {
     const out = {} as Record<AudienceKey, number>
@@ -56,7 +69,7 @@ export function CampaignBuilder({ kind: initialKind }: { kind: 'auto' | 'broadca
 
   const save = async (draft: boolean) => {
     if (!name.trim() || !body.trim()) return
-    const c = await campaignsApi.create({ kind, metric: survey ? metric : undefined, name: name.trim(), channel, subject: isEmail ? subject : '', body, audience, trigger, draft, tags: tags.filter(g => (body + subject).includes(`{${g.id}}`)) })
+    const c = await campaignsApi.create({ kind, metric: survey ? metric : undefined, name: name.trim(), channel, subject: isEmail ? subject : '', body, audience, trigger, draft, folderId: folder === 'none' ? undefined : folder, tags: tags.filter(g => (body + subject).includes(`{${g.id}}`)) })
     close(); navigate(`/campaigns/${c.id}`)
   }
 
@@ -90,6 +103,10 @@ export function CampaignBuilder({ kind: initialKind }: { kind: 'auto' | 'broadca
                 <Select id="nc-kind" value={kind} onChange={v => pickKind(v as 'auto' | 'broadcast' | 'survey')} options={[{ value: 'broadcast', label: 'One-off send, now' }, { value: 'survey', label: 'Survey, NPS or CSAT' }, { value: 'auto', label: 'Automatic' }]} /></div>
               <div className="enq__field"><label htmlFor="nc-chan">Channel</label>
                 <Select id="nc-chan" value={channel} onChange={v => setChannel(v as CampaignChannel)} options={[{ value: 'Email', label: 'Email' }, { value: 'Text', label: 'Text' }, { value: 'Text and Email', label: 'Text and email' }]} /></div>
+              {!!folders?.length && (
+                <div className="enq__field enq__field--wide"><label htmlFor="nc-folder">Folder</label>
+                  <Select id="nc-folder" value={folder} onChange={setFolder} options={[{ value: 'none', label: 'No folder' }, ...folders.map(f => ({ value: f.id, label: f.name }))]} /></div>
+              )}
               {survey && (
                 <div className="enq__field enq__field--wide"><label htmlFor="nc-metric">Score</label>
                   <Select id="nc-metric" value={metric} onChange={v => pickMetric(v as SurveyMetric)} options={[{ value: 'nps', label: 'NPS, likelihood to recommend (0 to 10)' }, { value: 'csat', label: 'CSAT, satisfaction (1 to 5)' }]} /></div>
@@ -105,6 +122,12 @@ export function CampaignBuilder({ kind: initialKind }: { kind: 'auto' | 'broadca
               )}
             </div>
           </fieldset>
+
+          {!!templates?.length && !survey && (
+            <div className="enq__field"><label htmlFor="nc-tpl">Start from a template</label>
+              <Select id="nc-tpl" value={template} onChange={applyTemplate}
+                options={[{ value: 'none', label: 'No template' }, ...templates.map(x => ({ value: x.id, label: `${x.name} (${x.channel})` }))]} /></div>
+          )}
 
           <InputsPicker text={body + (isEmail ? subject : '')} tags={tags} onPick={merge} onCreate={g => setTags(t => [...t, g])} />
 

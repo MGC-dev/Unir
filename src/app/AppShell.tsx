@@ -13,6 +13,7 @@ import { UiProvider, useUi } from './UiContext'
 import { Layers } from './Layers'
 import { Tour } from '../modules/tour/Tour'
 import { InfoTip } from '../shared/InfoTip'
+import { useAuth } from './auth'
 
 const WIDTH = 248
 const RAIL = 60
@@ -55,13 +56,14 @@ function UserFooter() {
   const { collapsed } = useSidebar()
   const { openModal } = useUi()
   const firm = useQuery(() => firmApi.get())
+  const { displayName, initials } = useAuth()
   return (
-    <button type="button" onClick={() => openModal({ type: 'account' })} aria-label={`Account. Signed in as Sarah Mitchell, ${firm?.name ?? ''}`}
+    <button type="button" onClick={() => openModal({ type: 'account' })} aria-label={`Account. Signed in as ${displayName}, ${firm?.name ?? ''}`}
       className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] p-1 text-left hover:bg-white/5">
-      <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-300 text-[11px] font-bold text-accent-ink">SM</span>
+      <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-300 text-[11px] font-bold text-accent-ink">{initials}</span>
       {!collapsed && (
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[12.5px] font-medium leading-tight">Sarah Mitchell</span>
+          <span className="block truncate text-[12.5px] font-medium leading-tight">{displayName}</span>
           <span className="block truncate text-[11px] leading-tight text-[var(--muted-foreground)]">{firm?.name}</span>
         </span>
       )}
@@ -112,6 +114,7 @@ function Toolbar() {
   const { filter, setFilter, openModal } = useUi()
   const seg = {
     messages: <Seg value={filter.inbox} onChange={x => setFilter('inbox', x)} options={[['all', 'All'], ['text', 'Texts'], ['email', 'Emails']]} />,
+    campaigns: <Seg label="Show" value={filter.campview} onChange={x => setFilter('campview', x)} options={[['campaigns', 'Campaigns'], ['templates', 'Templates']]} />,
   }[id]
   return (
     <>

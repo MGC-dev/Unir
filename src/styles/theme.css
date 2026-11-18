@@ -79,9 +79,16 @@ body { background: #ffffff; }
 .portal .menu__list { background: #fff; border: 1px solid var(--separator-soft); border-radius: var(--r-l); }
 
 /* ---------- tags ---------- */
+/* Status tags are outlined: coloured text and a soft border, no fill, so colour never shouts from a list. */
 .portal .tag, .portal .chip { font-weight: 600; }
-.portal .tag { border-radius: 6px; }
-.portal .tag--tint, .portal .chip--soft { background: var(--tint-soft); color: var(--tint-soft-ink); }
+.portal .tag { --c: var(--label-2); border-radius: 6px; background: transparent; color: var(--c); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent); }
+.portal .tag--tint { --c: var(--tint-soft-ink); }
+.portal .tag--green { --c: var(--green); }
+.portal .tag--orange { --c: var(--orange); }
+.portal .tag--red { --c: var(--red); }
+.portal .tag--accent { --c: var(--accent-soft-ink); }
+.portal .tag--tint, .portal .tag--green, .portal .tag--orange, .portal .tag--red, .portal .tag--accent { background: transparent; color: var(--c); }
+.portal .chip--soft { background: var(--tint-soft); color: var(--tint-soft-ink); }
 
 /* ---------- KPI: one navy slab, no decoration ---------- */
 .portal .kpi--hero { background: var(--navy); border-color: var(--navy); color: #fff; box-shadow: 0 6px 20px -8px rgba(15, 35, 71, 0.5); }
@@ -1122,8 +1129,8 @@ body.portal-lock { overflow: hidden; }
 .portal .col__cards { overflow-x: hidden; overscroll-behavior-x: auto; overscroll-behavior-y: contain; }
 .portal .board-wrap { scroll-snap-type: none; }
 @media (max-width: 760px) { .portal .board-wrap { scroll-snap-type: x proximity; } }
-/* Practice areas: solid tags, colour set per area in PracticeTag. */
-.portal .chip--practice { color: #fff; font-weight: 600; border: 0; }
+/* Practice areas: outlined tags, colour set per area in PracticeTag (--c). */
+.portal .chip--practice { background: transparent; color: var(--c); font-weight: 600; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent); }
 /* Documents: solid icon tiles instead of the see-through tint (white on the portal blue, 6.6:1). */
 .portal .ltable__avatar--doc, .portal .docv__filetile { background: var(--tint); color: #fff; box-shadow: 0 1px 2px rgba(15, 35, 71, 0.18); }
 
@@ -1245,3 +1252,146 @@ body.portal-lock { overflow: hidden; }
 @media (max-width: 1023px) { .portal .calx__fsc { display: block; overflow-y: auto; overscroll-behavior: contain; } }
 /* A help tooltip's hidden bubble could reach past the right edge and let the page slide sideways on phones. */
 body { overflow-x: clip; }
+
+/* A quiet destructive action, e.g. Delete in a dialog footer. */
+.portal .btn--danger-plain { background: transparent; border-color: transparent; color: var(--red); box-shadow: none; }
+.portal .btn--danger-plain:hover { background: var(--red-soft); border-color: transparent; }
+
+/* Campaign folders: a row of pills above the table. */
+.portal .folders { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.portal .folder { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 12px; border: 1.5px solid var(--separator-soft); border-radius: 999px; background: #fff; color: var(--navy); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: border-color 150ms, background-color 150ms, color 150ms; }
+.portal .folder:hover { border-color: #c6d0e2; background: var(--fill-2); }
+.portal .folder .icon { width: 15px; height: 15px; color: var(--tint); }
+.portal .folder__n { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--fill); color: var(--label-2); font-size: 12px; font-variant-numeric: tabular-nums; text-align: center; }
+.portal .folder[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+.portal .folder[aria-pressed="true"] .icon { color: #fff; }
+.portal .folder[aria-pressed="true"] .folder__n { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.portal .folders__tools { display: inline-flex; gap: 6px; margin-left: auto; }
+
+/* Integration brand logos sit on a white tile so their own colours read correctly. */
+.portal .ltable__avatar.integ__logo { background: #fff; box-shadow: inset 0 0 0 1px var(--separator-soft); }
+.portal .integ__logo img { width: 62%; height: 62%; object-fit: contain; }
+.portal .sheet-head__icon:has(.integ__sheetlogo) { background: #fff; box-shadow: inset 0 0 0 1px var(--separator-soft); }
+.portal .integ__sheetlogo { width: 26px; height: 26px; object-fit: contain; }
+
+/* ---------- reports ---------- */
+.portal .rep__kpis { grid-template-columns: 1.3fr repeat(4, minmax(0, 1fr)); }
+.portal .rep__kpis .kpi__value { font-size: 28px; }
+.portal .rep__kpis .kpi--hero .kpi__value { font-size: 40px; }
+@media (max-width: 1200px) { .portal .rep__kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .portal .rep__kpis .kpi--hero { grid-column: span 3; } }
+@media (max-width: 760px) { .portal .rep__kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .portal .rep__kpis .kpi--hero { grid-column: 1 / -1; } }
+.portal .rep__hbars li { grid-template-columns: minmax(96px, 150px) minmax(0, 1fr) 28px 84px; }
+.portal .rep__hbars.is-red .hbars__track span { background: var(--red); opacity: 0.75; }
+.portal .rep__hbars .hbars__sub { font-variant-numeric: tabular-nums; }
+.portal .rep__table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 13.5px; }
+.portal .rep__table th { padding: 10px var(--s5); text-align: left; font-size: 12px; font-weight: 600; color: var(--label-2); background: var(--fill-2); border-block: 1px solid var(--separator-soft); white-space: nowrap; }
+.portal .rep__table td { padding: 11px var(--s5); border-bottom: 1px solid var(--separator-soft); white-space: nowrap; }
+.portal .rep__table tbody tr:last-child td { border-bottom: 0; }
+.portal .rep__table tbody tr:hover td { background: var(--fill-2); }
+.portal .rep__table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.portal .rep__table b { color: var(--navy); font-weight: 600; }
+.portal .rep__sharecol { width: 26%; }
+.portal .rep__share { display: grid; grid-template-columns: minmax(60px, 1fr) 36px; align-items: center; gap: 8px; }
+.portal .rep__share em { font-style: normal; font-size: 12px; color: var(--label-2); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- dashboard ---------- */
+.portal button.kpi--link { width: 100%; font: inherit; text-align: left; border: 1px solid var(--separator-soft); cursor: pointer; transition: box-shadow 150ms var(--ease), border-color 150ms var(--ease), transform 150ms var(--ease); }
+.portal button.kpi--link:not(.kpi--hero) { color: inherit; background: #fff; }
+.portal button.kpi--link:hover { box-shadow: var(--shadow-hover); border-color: #cfd8e8; }
+.portal button.kpi--hero.kpi--link:hover { border-color: var(--navy); }
+.portal button.kpi--link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.portal .dash__sublabel { margin: 6px var(--s5) 0; font-size: 11.5px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent-text); }
+.portal .row.cold { padding-right: var(--s3); }
+.portal .row.cold .task__open { flex: 1; min-width: 0; }
+.portal .funnel li.is-link { cursor: pointer; border-radius: 6px; }
+.portal .funnel li.is-link:hover .funnel__label { color: var(--navy); }
+
+/* Dashboard rows: related cards side by side, every card in a row the same height. */
+.portal .dash { align-items: stretch; }
+.portal .dash > .panel { display: flex; flex-direction: column; }
+.portal .dash > .panel > .panel__foot { margin-top: auto; }
+.portal .dash--a { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+.portal .dash--b { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+.portal .dash--b > :first-child { grid-column: auto; }
+.portal .dash--c { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.portal .dash--a .funnel { flex: 1; align-content: center; }
+.portal .dash__activity .timeline { columns: 2; column-gap: var(--s6); }
+.portal .dash__activity .timeline > li { break-inside: avoid; }
+@media (max-width: 1100px) { .portal .dash--c { grid-template-columns: repeat(2, minmax(0, 1fr)); } .portal .dash--c > :first-child { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .portal .dash--a, .portal .dash--b, .portal .dash--c { grid-template-columns: minmax(0, 1fr); } .portal .dash--c > :first-child { grid-column: auto; } .portal .dash__activity .timeline { columns: 1; } }
+.portal .dash .hbars li { grid-template-columns: 96px minmax(0, 1fr) 24px 74px; }
+.portal .dash .hbars__sub { white-space: nowrap; }
+
+/* ---------- Settings: email design ---------- */
+.portal .emaildesign { padding: var(--s5); display: grid; gap: var(--s4); }
+.portal .emaildesign__head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
+.portal .emaildesign__head h2 { font-size: 18px; font-weight: 600; }
+.portal .emaildesign__actions { display: flex; gap: 8px; }
+.portal .emaildesign__grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: var(--s5); align-items: start; }
+.portal .emaildesign__form { display: grid; gap: 18px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.portal .emaildesign__form:disabled { opacity: 0.7; }
+.portal .emaildesign__form textarea { resize: vertical; }
+.portal .emaildesign__label { font-size: 13px; font-weight: 600; color: var(--label-2); }
+.portal .emaildesign__logo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.portal .emaildesign__logobox { display: grid; place-items: center; height: 56px; min-width: 120px; max-width: 220px; padding: 6px 10px; border: 1px dashed var(--separator); border-radius: 10px; background: #fff; }
+.portal .emaildesign__logobox img { max-height: 44px; max-width: 200px; object-fit: contain; }
+.portal .emaildesign__logobox em { font-style: normal; font-size: 12.5px; color: var(--label-3); }
+.portal .emaildesign__color { display: flex; align-items: center; gap: 8px; }
+.portal .emaildesign__color input[type="color"] { width: 40px; height: 36px; padding: 2px; border: 1px solid var(--separator-soft); border-radius: 8px; background: #fff; cursor: pointer; }
+.portal .emaildesign__color input:not([type]) { width: 110px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: lowercase; }
+.portal .emaildesign__error { margin: 0; font-size: 13px; color: var(--red); }
+.portal .emaildesign__preview { display: grid; gap: 8px; position: sticky; top: var(--s4); }
+.portal .emaildesign__previewhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.portal .emaildesign__frame { width: 100%; height: 560px; border: 1px solid var(--separator-soft); border-radius: 14px; background: #f3f4f6; }
+@media (max-width: 1100px) { .portal .emaildesign__grid { grid-template-columns: minmax(0, 1fr); } .portal .emaildesign__preview { position: static; } }
+
+/* ---------- team: invite a teammate ---------- */
+.portal .invite { display: grid; gap: 12px; padding: var(--s4); border-radius: var(--r-l); background: #fff; border: 1px solid var(--separator-soft); }
+.portal .invite__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--navy); }
+.portal .invite__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.portal .invite__grid > :last-child { grid-column: 1 / -1; }
+.portal .invite__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.portal .invite__error { margin: 0; font-size: 13px; color: var(--red); }
+@media (max-width: 760px) { .portal .invite__grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- lead profile: edit details ---------- */
+.portal .leadedit .lead__section { display: grid; gap: 12px; }
+.portal .leadedit__check { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #fff; border: 1px solid var(--separator-soft); cursor: pointer; }
+.portal .leadedit__check input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--navy); }
+.portal .leadedit__check span { display: grid; gap: 2px; font-size: 14px; }
+.portal .leadedit__check small { font-size: 12.5px; color: var(--label-2); }
+.portal .leadedit__error { margin: 0; font-size: 13px; color: var(--red); }
+.portal .leadedit__foot { display: flex; justify-content: flex-end; gap: 8px; position: sticky; bottom: 0; padding: 12px 0 4px; background: linear-gradient(to bottom, transparent, var(--bg) 30%); }
+
+/* Unsubscribe page (public, from campaign emails) */
+.unsub { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f3f4f6; font-family: inherit; }
+.unsub__card { width: 100%; max-width: 440px; background: #fff; border-radius: 14px; padding: 32px; box-shadow: 0 1px 2px rgba(15,35,71,.06), 0 8px 24px rgba(15,35,71,.06); }
+.unsub__title { margin: 0 0 10px; font-size: 20px; font-weight: 700; color: #0f2347; letter-spacing: -0.01em; }
+.unsub__text { margin: 0 0 20px; font-size: 14px; line-height: 22px; color: #4b5563; }
+.unsub__text:last-child { margin-bottom: 0; }
+.unsub__btn { height: 40px; padding: 0 18px; border: 0; border-radius: 8px; background: #0f2347; color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.unsub__btn:disabled { opacity: .6; cursor: default; }
+
+/* Email domain setup (Settings) */
+.portal .domain { display: grid; gap: var(--s4); padding: var(--s5); }
+.portal .domain__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s4); }
+.portal .domain__head h2 { margin: 0 0 4px; }
+.portal .domain__head .secondary { margin: 0; max-width: 64ch; }
+.portal .domain__form { display: flex; align-items: flex-end; gap: var(--s3); flex-wrap: wrap; }
+.portal .domain__form .enq__field { flex: 1 1 260px; max-width: 360px; }
+.portal .domain__records { display: grid; border: 1px solid var(--separator, rgba(0,0,0,.08)); border-radius: var(--r-s); overflow: hidden; }
+.portal .domain__row { display: grid; grid-template-columns: 64px minmax(160px, 1.1fr) minmax(0, 2fr) 64px 112px; gap: var(--s3); align-items: center; padding: 10px var(--s3); font-size: 13px; }
+.portal .domain__row + .domain__row { border-top: 1px solid var(--separator, rgba(0,0,0,.06)); }
+.portal .domain__row--head { background: var(--fill-2); font-size: 12px; font-weight: 600; color: var(--secondary-label, #6b7280); }
+.portal .domain__type { font-weight: 600; }
+.portal .domain__copy { all: unset; cursor: pointer; font: 12px/1.5 var(--font-mono); color: var(--label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 4px; padding: 2px 4px; margin: -2px -4px; }
+.portal .domain__copy:hover { background: var(--fill-2); }
+.portal .domain__copy:focus-visible { outline: 2px solid var(--accent, #2563eb); }
+.portal .domain__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
+.portal .domain__actions { display: flex; gap: var(--s2); }
+@media (max-width: 760px) {
+  .portal .domain__row { grid-template-columns: 56px minmax(0, 1fr) auto; row-gap: 4px; }
+  .portal .domain__row--head { display: none; }
+  .portal .domain__row > :nth-child(3) { grid-column: 2 / -1; grid-row: 2; }
+  .portal .domain__row > :nth-child(4) { display: none; }
+}

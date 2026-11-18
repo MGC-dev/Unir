@@ -1,6 +1,6 @@
 // Mock data for the UNIR portal. The mock endpoints in ./index.ts read from this file until the real backend is ready.
 // Everything is generated relative to "now" so the sample firm always looks current.
-import type { Activity, Bot, Campaign, ChatConversation, DocField, Firm, FirmEvent, Integration, Lead, PortalConfig, PortalDocument, SentItem, Service, SourceId, StageId, Task, TeamMember } from './types'
+import type { Activity, Bot, Campaign, CampaignFolder, MessageTemplate, ChatConversation, DocField, Firm, FirmEvent, Integration, Lead, PortalConfig, PortalDocument, SentItem, Service, SourceId, StageId, Task, TeamMember } from './types'
 
 export const HOUR = 3_600_000
 export const DAY = 24 * HOUR
@@ -216,6 +216,31 @@ export const surveyBody = (metric: 'nps' | 'csat') => metric === 'nps'
   ? 'Hi {first}, thank you for choosing {firm}. On a scale of 0 to 10, how likely are you to recommend us to a friend or colleague? Reply with a number.'
   : 'Hi {first}, how satisfied were you with the help you got from {firm}? Reply with a number from 1 (very unhappy) to 5 (very happy).'
 
+/** Starter message templates. */
+export const templates = (): MessageTemplate[] => {
+  const now = Date.now()
+  const t = (id: string, name: string, channel: MessageTemplate['channel'], body: string, ago: number, subject?: string): MessageTemplate =>
+    ({ id, name, channel, body, subject, createdAt: now - ago * DAY - DAY, updatedAt: now - ago * DAY, updatedBy: 'Sarah Mitchell' })
+  return [
+    t('tp1', 'First reply to an enquiry', 'Text', 'Hi {first}, thanks for reaching out to {firm} about your {matter}. Is now a good time for a quick call?', 2),
+    t('tp2', 'Book a consultation', 'Text', 'Hi {first}, we would love to talk through your {matter}. Reply with a day and time that suits you and we will book it in.', 4),
+    t('tp3', 'Missed call follow-up', 'Text', 'Hi {first}, sorry we missed you. Call us back on this number, or reply here and we will call you.', 9),
+    t('tp4', 'Consultation recap', 'Email', 'Hi {first},\n\nThank you for speaking with us about your {matter}. As discussed, the next step is to review and sign your engagement letter, which we will send shortly.\n\nKind regards,\n{firm}', 6, 'Your consultation with {firm}'),
+    t('tp5', 'Payment reminder', 'Email', 'Hi {first},\n\nA friendly reminder that your retainer for your {matter} is still outstanding. You can pay using the link we sent earlier.\n\nKind regards,\n{firm}', 12, 'A reminder about your retainer'),
+  ]
+}
+
+/** Starter campaign folders. The seed campaigns are filed into them below. */
+export const campaignFolders = (): CampaignFolder[] => {
+  const now = Date.now()
+  return [
+    { id: 'f1', name: 'Intake and follow-up', createdAt: now - 40 * DAY },
+    { id: 'f2', name: 'Client surveys', createdAt: now - 39 * DAY },
+    { id: 'f3', name: 'Newsletters', createdAt: now - 38 * DAY },
+  ]
+}
+export const SEED_FOLDER: Record<string, string> = { c1: 'f1', c2: 'f1', c3: 'f1', c4: 'f1', c5: 'f3', c6: 'f3', c7: 'f2', c8: 'f2' }
+
 export function campaigns(leadList: Lead[]): Campaign[] {
   const past = leadList.filter(l => l.stage === 'signed' || l.stage === 'payment' || l.stage === 'delivered')
   const auto = (c: Omit<Campaign, 'kind' | 'recipients' | 'sent'>): Campaign => ({ ...c, kind: 'auto', recipients: [], sent: 0 })
@@ -225,7 +250,7 @@ export function campaigns(leadList: Lead[]): Campaign[] {
     body: surveyBody(metric),
     recipients: past.map((l, i) => ({ id: l.id, name: l.name, channel: 'Email' as const, status: 'delivered' as const, opened: true, replied: i < scores.length, score: scores[i] })),
   })
-  return [
+  const list: Campaign[] = [
     auto({ id: 'c1', name: 'Instant Reply', trigger: 'A ticket moves to New Enquiry', channel: 'Text', steps: 1, active: true, body: 'Hi {first}, thanks for contacting Example Family Law. An attorney will call you today. Reply STOP to opt out.' }),
     auto({ id: 'c2', name: 'New Enquiry Welcome', trigger: 'A ticket moves to New Enquiry', channel: 'Email', steps: 3, active: true, body: 'Hi {first},\n\nThank you for reaching out about your {matter}. Here is what happens next, and what to bring to your consultation.' }),
     auto({ id: 'c3', name: 'Consultation Reminder', trigger: 'A ticket moves to Consultation', channel: 'Text and Email', steps: 2, active: true, body: 'Hi {first}, a reminder of your consultation tomorrow. Reply C to confirm.' }),
@@ -240,6 +265,7 @@ export function campaigns(leadList: Lead[]): Campaign[] {
     survey('c7', 'Client NPS Survey', 'nps', [10, 7], 30),
     survey('c8', 'Client Satisfaction (CSAT)', 'csat', [5, 4], 18),
   ]
+  return list.map(c => ({ ...c, folderId: SEED_FOLDER[c.id] }))
 }
 
 /* ---------- intelligence ---------- */

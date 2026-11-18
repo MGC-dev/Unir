@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { firmApi, leadsApi, useQuery } from '../../api'
+import { firmApi, leadsApi, live, useQuery } from '../../api'
 import { config } from '../../api/mockData'
 import type { Lead } from '../../api/types'
 import { useUi } from '../../app/UiContext'
@@ -43,6 +43,11 @@ const STEPS: Step[] = [
 
 /** Floating, dismissible product tour that drives the real app through the lead journey. */
 export function Tour() {
+  if (live) return null // the tour creates sample leads and fakes setup steps: demo mode only
+  return <TourInner />
+}
+
+function TourInner() {
   const t = useTour()
   const navigate = useNavigate()
   const { pathname } = useLocation()

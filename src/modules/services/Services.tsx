@@ -26,7 +26,6 @@ export default function Services() {
   const cols = useMemo<Col<Service>[]>(() => [
     { id: 'name', label: 'Service', locked: true, sort: s => s.name.toLowerCase(), render: s => (
       <span className="ltable__who">
-        <span className="ltable__avatar ltable__avatar--doc" aria-hidden="true"><Icon name="services" /></span>
         <span><b>{s.name}</b><small className="doclist__desc">{s.description || 'No description'}</small></span>
       </span>) },
     { id: 'practice', label: 'Practice area', defaultOn: true, sort: s => s.practice, render: s => <Tag tone="tint">{s.practice}</Tag> },
@@ -66,7 +65,7 @@ export default function Services() {
           <ul className="lcards only-phone">{rows.map(s => (
             <li key={s.id}>
               <button type="button" className="lcard" onClick={() => openService(s.id)}>
-                <span className="lcard__top"><span className="ltable__avatar ltable__avatar--doc" aria-hidden="true"><Icon name="services" /></span>
+                <span className="lcard__top">
                   <span className="lcard__who"><b>{s.name}</b><small>{s.practice}</small></span><span className="lcard__fee num">{priceLabel(s)}</span></span>
                 <span className="lcard__meta"><Tag>{PRICING_MODELS[s.pricingModel]}</Tag>{s.active ? <Tag tone="green" icon="check">Active</Tag> : <Tag>Inactive</Tag>}</span>
               </button>

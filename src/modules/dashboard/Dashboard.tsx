@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { tasksApi, campaignsApi, eventsApi, firmApi, leadsApi, useQuery } from '../../api'
+import { tasksApi, campaignsApi, eventsApi, firmApi, leadsApi, live, useQuery } from '../../api'
 import { DAY, config } from '../../api/mockData'
 import type { Task, Lead } from '../../api/types'
 import { useUi } from '../../app/UiContext'
@@ -10,6 +10,8 @@ import { calEvents } from '../calendar/calendarEvents'
 import { campStats } from '../campaigns/campaignUtils'
 import { ACT_ICON, SOURCES, STAGE, STAGES, isOpen, isWon, feeKnown } from '../lead/selectors'
 import { InfoTip } from '../../shared/InfoTip'
+import { HeaderActions } from '../../shared/HeaderActions'
+import { IconPlus } from '@tabler/icons-react'
 
 // Sample history for the overview chart (the sample firm has only a handful of real leads).
 const ENQ_HISTORY = [3, 4, 2, 5, 3, 1, 1, 4, 6, 3, 5, 4, 2]
@@ -18,9 +20,23 @@ function enquirySeries(leads: Lead[]) {
   return Array.from({ length: 14 }, (_, i) => {
     const d = 13 - i, s = dayAt(-d), e = s + DAY
     const real = leads.filter(l => l.created >= s && l.created < e).length
-    return { day: new Date(s), n: (d === 0 ? 0 : ENQ_HISTORY[i] || 0) + real }
+    return { day: new Date(s), n: (d === 0 || live ? 0 : ENQ_HISTORY[i] || 0) + real }
   })
 }
+
+/** Minutes from each enquiry to the team's first call, text or email (automatic replies don't count). */
+function firstResponse(leads: Lead[]) {
+  const mins = leads.map(l => {
+    const r = l.activities.filter(a => a.t > l.created && ['call', 'text', 'email', 'meeting'].includes(a.type) && a.cls !== 'auto' && a.cls !== 'bad').sort((a, b) => a.t - b.t)[0]
+    return r ? (r.t - l.created) / 60_000 : null
+  }).filter((m): m is number => m !== null).sort((a, b) => a - b)
+  if (!mins.length) return null
+  const m = mins.length >> 1
+  return Math.round(mins.length % 2 ? mins[m] : (mins[m - 1] + mins[m]) / 2)
+}
+const duration = (min: number) => (min < 60 ? { v: min, u: 'min' } : min < 48 * 60 ? { v: Math.round(min / 6) / 10, u: 'hrs' } : { v: Math.round(min / 144) / 10, u: 'days' })
+/** Open leads nobody has touched for this long are going cold. */
+const COLD_AFTER = 3 * DAY
 
 function TaskRow({ a, lead }: { a: Task; lead?: Lead }) {
   const { openLead } = useUi()
@@ -58,6 +74,11 @@ export default function Dashboard() {
   const canEmail = firm.domainStatus === 'verified', canText = firm.textStatus === 'registered'
   const missing = [!canEmail ? 'your email domain is verified' : null, !canText ? 'your texting number is registered' : null].filter(Boolean).join(' and ')
 
+  const resp = firstResponse(leads), respD = resp === null ? null : duration(resp)
+  const lastTouch = (l: Lead) => Math.max(l.created, ...l.activities.filter(a => a.t <= now).map(a => a.t))
+  const cold = leads.filter(l => isOpen(l) && l.stage !== 'signed' && l.stage !== 'payment' && now - lastTouch(l) > COLD_AFTER).sort((a, b) => lastTouch(a) - lastTouch(b))
+  const overdue = tasks.filter(a => !a.done && a.dueAt < now).length
+
   const max = Math.max(...series.map(x => x.n), 1)
   const ticks = [max, Math.round(max / 2), 0]
 
@@ -72,8 +93,8 @@ export default function Dashboard() {
   const src = (Object.keys(config.sources) as (keyof typeof SOURCES)[]).map(k => { const ls = leads.filter(l => l.source === k); return { k, n: ls.length, w: ls.filter(isWon).length } }).filter(x => x.n).sort((x, y) => y.n - x.n)
   const smax = Math.max(...src.map(x => x.n), 1)
 
-  const attention = tasks.filter(a => !a.done && a.dueAt <= eod).slice(0, 5)
-  const feed = leads.flatMap(l => l.activities.map(a => ({ ...a, l }))).filter(a => a.t <= now).sort((x, y) => y.t - x.t).slice(0, 6)
+  const attention = tasks.filter(a => !a.done && a.dueAt <= eod).slice(0, 3)
+  const feed = leads.flatMap(l => l.activities.map(a => ({ ...a, l }))).filter(a => a.t <= now).sort((x, y) => y.t - x.t).slice(0, 8)
   // documents sent to leads, newest activity first: where to see what is awaiting signature and what is signed
   const sentDocs = leads.filter(l => l.doc).map(l => ({ l, d: l.doc!, t: l.doc!.signed ?? l.doc!.sent }))
     .sort((x, y) => y.t - x.t)
@@ -88,12 +109,18 @@ export default function Dashboard() {
         <div className="banner"><Icon name="alert" /><span><b>Sending is not set up yet.</b> Campaign messages are held until {missing}.</span>
           <button className="btn btn--sm" type="button" onClick={() => go('/settings')}>Finish Setup</button></div>
       )}
+      <HeaderActions>
+        <button type="button" className="iconbtn iconbtn--primary" aria-label="Add enquiry" title="Add enquiry" onClick={() => openModal({ type: 'intake' })}><IconPlus size={19} stroke={2.2} /></button>
+      </HeaderActions>
+
       <div className="kpis">
-        <div className="kpi kpi--hero"><span className="kpi__label">New Enquiries, This Week</span><b className="kpi__value">{thisWeek}</b>
-          <span className={'kpi__delta ' + (delta >= 0 ? 'is-up' : 'is-down')}><Icon name="arrow" small />{Math.abs(delta)}% vs last week</span></div>
-        <div className="kpi"><span className="kpi__label">Median First Response</span><b className="kpi__value">14<small> min</small></b><Tag tone="green" icon="check">Under 1 hour target</Tag></div>
-        <div className="kpi"><span className="kpi__label">Consultation to Signed</span><b className="kpi__value">{conv}<small>%</small></b><span className="kpi__sub">{won.length} of {reached.length} consultations</span></div>
-        <div className="kpi"><span className="kpi__label">Open Pipeline</span><b className="kpi__value">{money(open.filter(feeKnown).reduce((a, l) => a + l.value, 0))}</b><span className="kpi__sub">{open.length} open leads</span></div>
+        <button type="button" className="kpi kpi--hero kpi--link" onClick={() => go('/leads')}><span className="kpi__label">New Enquiries, This Week</span><b className="kpi__value">{thisWeek}</b>
+          <span className={'kpi__delta ' + (delta >= 0 ? 'is-up' : 'is-down')}><Icon name="arrow" small />{Math.abs(delta)}% vs last week</span></button>
+        <button type="button" className="kpi kpi--link" onClick={() => go('/reports')}><span className="kpi__label">Median First Response</span>
+          {respD ? <><b className="kpi__value">{respD.v}<small> {respD.u}</small></b>{resp! <= 60 ? <Tag tone="green" icon="check">Under 1 hour target</Tag> : <Tag tone="orange">Over the 1 hour target</Tag>}</>
+            : <><b className="kpi__value">–</b><span className="kpi__sub">No replies logged yet</span></>}</button>
+        <button type="button" className="kpi kpi--link" onClick={() => go('/reports')}><span className="kpi__label">Consultation to Signed</span><b className="kpi__value">{conv}<small>%</small></b><span className="kpi__sub">{won.length} of {reached.length} consultations</span></button>
+        <button type="button" className="kpi kpi--link" onClick={() => go('/pipeline')}><span className="kpi__label">Open Pipeline</span><b className="kpi__value">{money(open.filter(feeKnown).reduce((a, l) => a + l.value, 0))}</b><span className="kpi__sub">{open.length} open leads{overdue ? ` · ${overdue} overdue ${overdue === 1 ? 'task' : 'tasks'}` : ''}</span></button>
       </div>
 
       <div className="dash dash--a">
@@ -118,6 +145,36 @@ export default function Dashboard() {
           </div>
         </section>
         <section className="group panel">
+          <div className="panel__head"><div className="titlerow"><h2>Pipeline</h2><InfoTip text="How many leads have reached each stage." label="About Pipeline" /></div><button className="btn btn--plain btn--sm" type="button" onClick={() => go('/pipeline')}>Board</button></div>
+          <ol className="funnel">
+            {funnelStages.map((s, i) => <li key={s.id} className="is-link" onClick={() => go('/pipeline')} title={`${counts[i]} reached ${s.label}`}><span className="funnel__label">{s.label}</span><span className="funnel__track"><span style={{ width: counts[i] / fmax * 100 + '%' }} /></span><b>{counts[i]}</b></li>)}
+            <li className="is-lost"><span className="funnel__label">Lost</span><span className="funnel__track"><span style={{ width: lost / fmax * 100 + '%' }} /></span><b>{lost}</b></li>
+          </ol>
+        </section>
+      </div>
+
+      <div className="dash dash--b">
+        <section className="group panel">
+          <div className="panel__head"><div><h2>Needs Attention</h2><p className="footnote">{[attention.length ? `${attention.length} follow-up${attention.length === 1 ? '' : 's'} due today` : 'Nothing due today', cold.length ? `${cold.length} going cold` : ''].filter(Boolean).join(' · ')}</p></div>
+            <button className="btn btn--plain btn--sm" type="button" onClick={() => go('/tasks')}>Tasks</button></div>
+          {attention.length > 0 && <ul className="rows">{attention.map(a => <TaskRow key={a.id} a={a} lead={leads.find(l => l.id === a.leadId)} />)}</ul>}
+          {cold.length > 0 && (
+            <>
+              <p className="dash__sublabel"><span className="titlerow">Going cold<InfoTip text="Open leads with no calls, messages or changes in the last 3 days." label="About going cold" /></span></p>
+              <ul className="rows">{cold.slice(0, 2).map(l => (
+                <li key={l.id}><div className="row cold">
+                  <button type="button" className="task__open" onClick={() => openLead(l.id)}>
+                    <span className="row__main"><b>{l.name}</b><span>{l.matter} · {STAGE[l.stage].label}</span></span>
+                    <span className="row__end"><Tag tone="orange">Quiet {ago(lastTouch(l)).replace(/ ago$/, '')}</Tag><span className="caption">{l.owner}</span></span>
+                  </button>
+                  <button type="button" className="iconbtn" aria-label={`Text ${l.name}`} title="Send a text" onClick={() => openModal({ type: 'compose', id: l.id })}><Icon name="messages" /></button>
+                </div></li>
+              ))}</ul>
+            </>
+          )}
+          {!attention.length && !cold.length && <div className="empty"><Icon name="check" /><p>You are all caught up.</p></div>}
+        </section>
+        <section className="group panel">
           <div className="panel__head"><div><h2>{todays.length ? 'Today' : 'Coming Up'}</h2><p className="footnote">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p></div>
             <button className="btn btn--plain btn--sm" type="button" onClick={() => go('/calendar')}>Calendar</button></div>
           {nextUp.length ? (
@@ -130,39 +187,15 @@ export default function Dashboard() {
         </section>
       </div>
 
-      <div className="dash dash--b">
-        <section className="group panel">
-          <div className="panel__head"><div><h2>Needs Attention</h2><p className="footnote">{attention.length ? `${attention.length} follow-up${attention.length === 1 ? '' : 's'} due today` : 'Nothing due today'}</p></div>
-            <button className="btn btn--plain btn--sm" type="button" onClick={() => go('/tasks')}>Tasks</button></div>
-          {attention.length ? <ul className="rows">{attention.map(a => <TaskRow key={a.id} a={a} lead={leads.find(l => l.id === a.leadId)} />)}</ul>
-            : <div className="empty"><Icon name="check" /><p>You are all caught up.</p></div>}
-        </section>
-        <section className="group panel">
-          <div className="panel__head"><div className="titlerow"><h2>Pipeline</h2><InfoTip text="How many leads have reached each stage." label="About Pipeline" /></div><button className="btn btn--plain btn--sm" type="button" onClick={() => go('/pipeline')}>Board</button></div>
-          <ol className="funnel">
-            {funnelStages.map((s, i) => <li key={s.id}><span className="funnel__label">{s.label}</span><span className="funnel__track"><span style={{ width: counts[i] / fmax * 100 + '%' }} /></span><b>{counts[i]}</b></li>)}
-            <li className="is-lost"><span className="funnel__label">Lost</span><span className="funnel__track"><span style={{ width: lost / fmax * 100 + '%' }} /></span><b>{lost}</b></li>
-          </ol>
-        </section>
-        <section className="group panel">
-          <div className="panel__head"><div className="titlerow"><h2>Lead Sources</h2><InfoTip text="Where leads come from, and how many of them signed." label="About Lead Sources" /></div></div>
-          <ul className="hbars">{src.map(x => <li key={x.k}><span className="hbars__label">{SOURCES[x.k]}</span><span className="hbars__track"><span style={{ width: x.n / smax * 100 + '%' }} /></span><b>{x.n}</b><span className="hbars__sub">{x.w ? `${x.w} signed` : '–'}</span></li>)}</ul>
-        </section>
-      </div>
-
       <div className="dash dash--c">
         <section className="group panel">
-          <div className="panel__head"><div className="titlerow"><h2>Recent Activity</h2><InfoTip text="The latest activity across every lead." label="About Recent Activity" /></div></div>
-          <ul className="timeline">{feed.map((a, i) => (
-            <li key={i} className={a.cls}><span className="dot"><Icon name={ACT_ICON[a.type] || 'arrow'} /></span>
-              <div><b>{a.title}</b><p className="footnote"><button type="button" className="linkbtn" onClick={() => openLead(a.l.id)}>{a.l.name}</button> · {ago(a.t)}</p></div></li>
-          ))}</ul>
+          <div className="panel__head"><div className="titlerow"><h2>Lead Sources</h2><InfoTip text="Where leads come from, and the share of them that signed." label="About Lead Sources" /></div><button className="btn btn--plain btn--sm" type="button" onClick={() => go('/reports')}>Reports</button></div>
+          <ul className="hbars">{src.map(x => <li key={x.k}><span className="hbars__label">{SOURCES[x.k]}</span><span className="hbars__track"><span style={{ width: x.n / smax * 100 + '%' }} /></span><b>{x.n}</b><span className="hbars__sub" title={`${x.w} of ${x.n} signed`}>{x.w ? `${Math.round(x.w / x.n * 100)}% signed` : '–'}</span></li>)}</ul>
         </section>
-        <div className="dash__stack">
         <section className="group panel docact">
           <div className="panel__head"><div><h2>Document Activity</h2><p className="footnote">{sentDocs.length ? `${awaiting} awaiting signature · ${sentDocs.length - awaiting} signed` : 'Nothing sent yet'}</p></div></div>
           {sentDocs.length ? (
-            <ul className="rows">{sentDocs.slice(0, 5).map(({ l, d, t }) => (
+            <ul className="rows">{sentDocs.slice(0, 3).map(({ l, d, t }) => (
               <li key={l.id}><button type="button" className="row" onClick={() => openLead(l.id)}>
                 <Icon name="doc" /><span className="row__main"><b>{d.items?.map(i => i.name).join(', ') || 'Engagement letter'}</b><span>{l.name} · {d.status === 'signed' ? 'signed' : 'sent'} {when(t)}</span></span>
                 <span className="row__end">{d.status === 'signed' ? <Tag tone="green" icon="check">Signed</Tag> : <Tag tone="orange">Awaiting signature</Tag>}</span>
@@ -178,8 +211,15 @@ export default function Dashboard() {
           )}
           <div className="panel__foot"><button className="btn btn--sm btn--prominent" type="button" onClick={() => openModal({ type: 'newcamp', kind: 'broadcast' })}><Icon name="plus" small />New Campaign</button></div>
         </section>
-        </div>
       </div>
+
+        <section className="group panel dash__activity">
+          <div className="panel__head"><div className="titlerow"><h2>Recent Activity</h2><InfoTip text="The latest activity across every lead." label="About Recent Activity" /></div></div>
+          <ul className="timeline">{feed.map((a, i) => (
+            <li key={i} className={a.cls}><span className="dot"><Icon name={ACT_ICON[a.type] || 'arrow'} /></span>
+              <div><b>{a.title}</b><p className="footnote"><button type="button" className="linkbtn" onClick={() => openLead(a.l.id)}>{a.l.name}</button> · {ago(a.t)}</p></div></li>
+          ))}</ul>
+        </section>
     </>
   )
 

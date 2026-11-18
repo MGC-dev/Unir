@@ -1,1 +1,7 @@
 node_modules
+# Local secrets (Supabase keys etc.)
+.env.local
+.env.*.local
+backend/supabase/functions/.env
+backend/supabase/.temp
+backend/supabase/.branches

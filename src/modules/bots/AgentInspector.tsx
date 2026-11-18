@@ -1,12 +1,25 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { IconTrash } from '@tabler/icons-react'
-import { botsApi, type BotInput } from '../../api'
-import { BOT_ACTIONS, BOT_MODELS, BOT_TOOLS, EXTERNAL_TOOLS, type Bot, type BotModel } from '../../api/types'
+import { botsApi, firmApi, live, useQuery, type BotInput } from '../../api'
+import { BOT_ACTIONS, BOT_MODELS, BOT_TOOLS, EXTERNAL_TOOLS, type Bot, type BotModel, type BotRun, type BotSchedule } from '../../api/types'
 import { when } from '../../shared/format'
 import { cn } from '@/lib/utils'
 import { BotAvatar } from './BotAvatar'
 
-const toInput = (a: Bot): BotInput => ({ name: a.name, description: a.description, instructions: a.instructions, model: a.model, tools: [...a.tools], actions: [...a.actions], external: [...a.external], active: a.active })
+const localTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Johannesburg' } catch { return 'Africa/Johannesburg' } }
+const noSchedule = (): BotSchedule => ({ enabled: false, days: [1, 2, 3, 4, 5], time: '08:00', tz: localTz(), to: [] })
+const toInput = (a: Bot): BotInput => ({
+  name: a.name, description: a.description, instructions: a.instructions, model: a.model, tools: [...a.tools], actions: [...a.actions], external: [...a.external], active: a.active,
+  schedule: a.schedule ? { ...a.schedule, days: [...a.schedule.days], to: [...a.schedule.to] } : noSchedule(),
+})
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+/** "Weekdays at 08:00", "Every day at 07:30", "Mon, Wed at 09:00". */
+const scheduleLabel = (s: BotSchedule) => {
+  const d = [...s.days].sort()
+  const days = d.length === 7 ? 'Every day' : d.join() === '1,2,3,4,5' ? 'Weekdays' : d.join() === '0,6' ? 'Weekends' : d.map(i => DAYS[i]).join(', ')
+  return `${days} at ${s.time}`
+}
+const EMAIL_NOTE: Record<BotRun['emailStatus'], string> = { none: 'Not emailed', sent: 'Emailed', held: 'Email held', failed: 'Email failed' }
 const same = (a: BotInput, b: BotInput) => JSON.stringify(a) === JSON.stringify(b)
 const flip = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter(x => x !== v) : [...list, v])
 
@@ -74,6 +87,12 @@ export function AgentInspector({ bot, isNew, onClose, onDeleted }: { bot: Bot; i
   const saved = toInput(bot)
   const dirty = !same(draft, saved)
   const set = (patch: Partial<BotInput>) => { setDraft(d => ({ ...d, ...patch })); setError('') }
+  const setSchedule = (patch: Partial<BotSchedule>) => setDraft(d => ({ ...d, schedule: { ...d.schedule, ...patch } }))
+  const team = useQuery(() => firmApi.team()) ?? []
+  const runs = useQuery(() => botsApi.runs(bot.id), [bot.id]) ?? []
+  const [running, setRunning] = useState(false)
+  const runNow = async () => { setRunning(true); try { await botsApi.runNow(bot.id) } finally { setRunning(false) } }
+  const sched = draft.schedule
 
   // Another agent opened in the same inspector: start from its saved settings.
   useEffect(() => { setDraft(toInput(bot)); setError(''); setConfirming(false) }, [bot.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -82,6 +101,9 @@ export function AgentInspector({ bot, isNew, onClose, onDeleted }: { bot: Bot; i
   const save = async () => {
     if (!draft.name.trim()) { setError('Give the agent a name.'); name.current?.focus(); return }
     if (draft.active && !draft.instructions.trim()) { setError('Write its instructions before making it available in Chat.'); return }
+    if (sched.enabled && !draft.active) { setError('Switch on “Available in Chat” too: only agents that are on run by themselves.'); return }
+    if (sched.enabled && !sched.days.length) { setError('Pick at least one day for it to run.'); return }
+    if (sched.enabled && !draft.instructions.trim()) { setError('Write its instructions so it knows what to report.'); return }
     setSaving(true)
     await botsApi.update(bot.id, { ...draft, name: draft.name.trim() })
     setSaving(false)
@@ -149,6 +171,59 @@ export function AgentInspector({ bot, isNew, onClose, onDeleted }: { bot: Bot; i
             <textarea aria-label="Instructions" rows={7} value={draft.instructions} onChange={e => set({ instructions: e.target.value })}
               placeholder="e.g. You help the intake team. Draft a warm first reply, suggest the next step, and never give legal advice."
               className="block w-full resize-y bg-white px-4 py-3 text-[15px] leading-[22px] text-ios-label outline-none placeholder:text-ios-tertiary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ios-accent/[0.12]" />
+          </Group>
+
+          <Group title="Schedule" footer={sched.enabled
+            ? `${scheduleLabel(sched)}, ${sched.tz.replace(/_/g, ' ')} time. It follows its instructions, using only what it can look at, and emails the result.${live ? '' : ' Schedules run in the live portal only.'}`
+            : 'Run it by itself, like a daily lead update, and email the result to your team.'}>
+            <SwitchRow label="Run automatically" on={sched.enabled} onChange={() => setSchedule({ enabled: !sched.enabled })} />
+            {sched.enabled && (
+              <>
+                <div className="grid gap-2 px-4 py-3">
+                  <span className="text-[13px] text-ios-secondary">Days</span>
+                  <div role="group" aria-label="Days" className="flex flex-wrap gap-1.5">
+                    {DAYS.map((d, i) => {
+                      const on = sched.days.includes(i)
+                      return <button key={d} type="button" aria-pressed={on} onClick={() => setSchedule({ days: on ? sched.days.filter(x => x !== i) : [...sched.days, i].sort() })}
+                        className={cn('h-8 min-w-[44px] rounded-full px-2.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ios-accent/50',
+                          on ? 'bg-ios-accent text-white' : 'bg-ios-field text-ios-secondary hover:text-ios-label')}>{d}</button>
+                    })}
+                  </div>
+                </div>
+                <label className="flex min-h-11 items-center gap-3 py-2 pr-3 pl-4">
+                  <span className="flex-1 text-[15px] text-ios-label">Time</span>
+                  <input type="time" value={sched.time} onChange={e => setSchedule({ time: e.target.value || '08:00' })}
+                    className="rounded-lg bg-ios-field px-2 py-1 text-[15px] text-ios-label outline-none focus-visible:ring-2 focus-visible:ring-ios-accent/50" />
+                </label>
+              </>
+            )}
+          </Group>
+
+          {sched.enabled && (
+            <Group title="Email the result to" footer={team.length ? 'Only people in your firm can be chosen. Emails come from your firm’s own address.' : 'Nobody in the team yet.'}>
+              {team.map(m => (
+                <SwitchRow key={m.name} label={m.name} hint={m.role} on={sched.to.includes(m.name)}
+                  onChange={() => setSchedule({ to: sched.to.includes(m.name) ? sched.to.filter(x => x !== m.name) : [...sched.to, m.name] })} />
+              ))}
+            </Group>
+          )}
+
+          <Group title="Runs" footer={dirty ? 'Save your changes first, then run it to see the result.' : bot.lastRunAt ? `Last ran ${when(bot.lastRunAt)}.` : 'It hasn’t run on its own yet.'}>
+            <button type="button" disabled={dirty || running || !draft.instructions.trim()} onClick={runNow}
+              className="flex min-h-11 w-full items-center justify-center text-[15px] font-medium text-ios-accent outline-none hover:bg-black/[0.03] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ios-accent/40 disabled:opacity-40">
+              {running ? 'Running… this takes a few seconds' : sched.to.length ? 'Run now and email it' : 'Run now'}
+            </button>
+            {runs.slice(0, 5).map(r => (
+              <details key={r.id} className="group px-4 py-2.5">
+                <summary className="flex cursor-pointer list-none items-center gap-2 text-[14px] text-ios-label outline-none [&::-webkit-details-marker]:hidden">
+                  <span className={cn('size-2 shrink-0 rounded-full', r.status === 'done' ? 'bg-ios-green' : 'bg-ios-red')} aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate">{when(r.at)} · {r.trigger === 'schedule' ? 'Scheduled' : 'Run now'}</span>
+                  <span className="shrink-0 text-[12.5px] text-ios-secondary">{r.status === 'failed' ? 'Failed' : EMAIL_NOTE[r.emailStatus]}{r.emailStatus === 'sent' ? ` to ${r.recipients.length}` : ''}</span>
+                </summary>
+                {r.error && <p className="mt-2 text-[13px] text-ios-red">{r.error}</p>}
+                {r.output && <p className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg bg-ios-field p-3 text-[13px] leading-[19px] text-ios-label">{r.output}</p>}
+              </details>
+            ))}
           </Group>
 
           <Group footer={`${bot.runs} ${bot.runs === 1 ? 'run' : 'runs'} · Updated ${when(bot.updatedAt)} by ${bot.updatedBy}`}>

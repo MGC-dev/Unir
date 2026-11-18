@@ -4,11 +4,14 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { config as seedConfig, enquiryPool, team as seedTeam } from './mockData'
 import * as srv from './mockServer'
-import { store } from './mockServer'
+import { store, live } from './mockServer'
+import { addDomain, botRuns, checkDomain, inviteMember, isAdmin, liveChat, reload as reloadLive, remote, runAgent, uploadLogo } from './remote'
+
+export { live }
 import { toast } from '../shared/toast' // mock-only: a real backend would not toast, the UI would
 import type {
   Task, AudienceKey, Campaign, PortalConfig, Firm, FirmEvent, Integration, Lead, NewCampaignInput, NewLeadInput,
-  DocFile, DocField, PortalDocument, SearchHit, Service, SendProgress, SentItem, SourceId, StageId, TeamMember, CampaignTag, CampaignChannel, SurveyMetric, Bot, BotAction, BotModel, BotTool, ChatConversation, ExternalTool } from './types'
+  DocFile, DocField, PortalDocument, SearchHit, Service, SendProgress, SentItem, SourceId, StageId, TeamMember, CampaignTag, CampaignChannel, CampaignFolder, MessageTemplate, TemplateChannel, SurveyMetric, Bot, BotAction, BotModel, BotTool, ChatConversation, ExternalTool, BotSchedule, BotRun, FirmBrand } from './types'
 
 const clone = <T,>(v: T): T => structuredClone(v)
 const reply = <T,>(v: T): Promise<T> => Promise.resolve(clone(v))
@@ -17,6 +20,8 @@ const done = () => { store.commit(); return Promise.resolve() }
 export const configApi = {
   get: (): Promise<PortalConfig> => reply(seedConfig),
 }
+
+export type LeadPatch = Partial<Pick<Lead, 'name' | 'email' | 'phone' | 'matter' | 'practice' | 'source' | 'owner' | 'notes' | 'optedOut'>>
 
 export const leadsApi = {
   list: (): Promise<Lead[]> => reply(store.get().leads),
@@ -35,6 +40,8 @@ export const leadsApi = {
   sign(id: string, by: string) { srv.signContract(srv.findLead(id), by); return done() },
   markLost(id: string, reason: string) { srv.markLost(srv.findLead(id), reason); return done() },
   sendText(id: string, body: string) { srv.sendText(srv.findLead(id), body); return done() },
+  /** Edits who the lead is: name, contact details, matter, practice area, owner, notes, opt-out. */
+  update(id: string, patch: LeadPatch) { srv.updateLead(srv.findLead(id), patch); return done() },
   addReminder(id: string, title: string, inHours: number) { return tasksApi.create({ type: 'follow_up', title, dueAt: Date.now() + inHours * 3_600_000, assignedTo: srv.findLead(id).owner, leadId: id }) },
 }
 
@@ -134,14 +141,97 @@ export const campaignsApi = {
     return reply({ total: people.length, optedOut: people.filter(l => l.optedOut).length, sample: people.find(l => !l.optedOut) ?? store.get().leads[0] })
   },
   progress: (): Promise<SendProgress | null> => reply(store.get().sending),
+  /** Files a campaign in a folder, or takes it out of its folder (null). */
+  move(id: string, folderId: string | null) {
+    const c = store.get().campaigns.find(x => x.id === id)
+    const f = store.get().campaignFolders.find(x => x.id === folderId)
+    if (c) { c.folderId = f?.id; toast(f ? `Moved to ${f.name}` : 'Removed from its folder', c.name) }
+    return done()
+  },
+}
+
+/** Folders for organising campaigns. Deleting a folder keeps its campaigns; they become Unfiled. */
+export const campaignFoldersApi = {
+  list: (): Promise<CampaignFolder[]> => reply([...store.get().campaignFolders].sort((a, b) => a.name.localeCompare(b.name))),
+  create(name: string): Promise<CampaignFolder> {
+    const f: CampaignFolder = { id: srv.uid('f'), name: name.trim(), createdAt: Date.now() }
+    store.get().campaignFolders.push(f); toast('Folder created', f.name); store.commit()
+    return reply(f)
+  },
+  rename(id: string, name: string) { const f = store.get().campaignFolders.find(x => x.id === id); if (f) { f.name = name.trim(); toast('Folder renamed', f.name) } return done() },
+  remove(id: string) {
+    const t = store.get(); const f = t.campaignFolders.find(x => x.id === id)
+    t.campaignFolders = t.campaignFolders.filter(x => x.id !== id)
+    t.campaigns.forEach(c => { if (c.folderId === id) c.folderId = undefined })
+    if (f) toast('Folder deleted', 'Its campaigns are now Unfiled')
+    return done()
+  },
+}
+
+export interface TemplateInput { name: string; channel: TemplateChannel; subject: string; body: string; tags?: CampaignTag[] }
+/** Message templates: saved texts and emails, used from Campaigns and when messaging a single lead. */
+export const templatesApi = {
+  list: (): Promise<MessageTemplate[]> => reply([...store.get().templates].sort((a, b) => b.updatedAt - a.updatedAt)),
+  get: (id: string): Promise<MessageTemplate | undefined> => reply(store.get().templates.find(x => x.id === id)),
+  create(input: TemplateInput): Promise<MessageTemplate> {
+    const now = Date.now()
+    const x: MessageTemplate = { id: srv.uid('tp'), ...clean(input), createdAt: now, updatedAt: now, updatedBy: 'Sarah Mitchell' }
+    store.get().templates.unshift(x); toast('Template saved', x.name); store.commit()
+    return reply(x)
+  },
+  update(id: string, input: TemplateInput) {
+    const x = store.get().templates.find(t => t.id === id)
+    if (x) { Object.assign(x, clean(input), { updatedAt: Date.now(), updatedBy: 'Sarah Mitchell' }); toast('Template saved', x.name) }
+    return done()
+  },
+  remove(id: string) { const t = store.get(); const x = t.templates.find(y => y.id === id); t.templates = t.templates.filter(y => y.id !== id); if (x) toast('Template deleted', x.name); return done() },
+}
+/** Keeps only what the channel uses: a subject for email, and the inputs the message actually contains. */
+const clean = (i: TemplateInput) => {
+  const subject = i.channel === 'Email' ? i.subject : undefined
+  const tags = (i.tags ?? []).filter(g => (i.body + (subject ?? '')).includes(`{${g.id}}`))
+  return { name: i.name.trim(), channel: i.channel, subject, body: i.body, tags: tags.length ? tags : undefined }
 }
 
 export const firmApi = {
   get: (): Promise<Firm> => reply(store.get().firm),
-  verifyDomain() { srv.verifyDomain(); return Promise.resolve() },
-  submitTexting() { store.get().firm.textStatus = 'review'; toast('Registration submitted', 'Carriers usually take days to weeks'); return done() },
-  approveTexting() { srv.approveTexting(); return done() },
-  team: (): Promise<TeamMember[]> => reply(seedTeam),
+  verifyDomain() { if (live) return firmApi.checkDomain(); srv.verifyDomain(); return Promise.resolve() },
+  /** Sets the firm's email domain (admins). Live: added to Resend, and the DNS records to add are saved on the firm. */
+  async addDomain(domain: string) {
+    if (!live) { const f = store.get().firm; f.domain = domain.toLowerCase().replace(/^www\./, ''); f.domainStatus = 'unverified'; toast('Domain added', 'Add the DNS records, then check them'); return done() }
+    await addDomain(domain)
+    const f = store.get().firm
+    toast(f.domainStatus === 'verified' ? 'Domain verified' : 'Domain added', f.domainStatus === 'verified' ? `Emails send from intake@${f.domain}` : 'Add the DNS records below at your domain host')
+  },
+  /** Looks for the DNS records now. `quiet` skips the toast unless the domain just became verified. */
+  async checkDomain(opts: { quiet?: boolean } = {}) {
+    if (!live) { srv.verifyDomain(); return }
+    const before = store.get().firm.domainStatus
+    const status = await checkDomain()
+    if (status === 'verified' && before !== 'verified') toast('Domain verified', `Emails now send from intake@${store.get().firm.domain}`)
+    else if (!opts.quiet && status !== 'verified') toast('Records not found yet', 'DNS changes can take up to a few hours to show')
+  },
+  submitTexting() {
+    if (live) { toast('Texting is set up by MGC', 'A texting provider isn’t connected yet'); return Promise.resolve() } store.get().firm.textStatus = 'review'; toast('Registration submitted', 'Carriers usually take days to weeks'); return done() },
+  approveTexting() { if (live) return Promise.resolve(); srv.approveTexting(); return done() },
+  /** Only admins can change firm settings (in demo mode everyone can). */
+  canEdit: (): boolean => !live || isAdmin(),
+  /** Invites a teammate by email. They get an email, choose a password and join the firm. */
+  async invite(email: string, name: string, role: 'admin' | 'member') {
+    if (!live) { toast('Invite sent', `${email} gets an email to join ${store.get().firm.name}`); return }
+    const r = await inviteMember(email, name, role)
+    toast(r.invited ? 'Invite sent' : 'Added to your firm', r.invited ? `${email} gets an email to join` : `${email} already had an account`)
+  },
+  /** Saves the firm's email design. */
+  saveBrand(brand: FirmBrand) { store.get().firm.brand = { ...brand }; toast('Email design saved', 'Every email your firm sends now uses it'); return done() },
+  /** Uploads a logo and returns its public link (live mode only: email programs need a real web address). */
+  uploadLogo(file: File): Promise<string> {
+    if (!live) { toast('Logos upload in the live portal', 'Connect Supabase to use your logo'); return Promise.reject(new Error('demo')) }
+    return uploadLogo(file)
+  },
+  team: (): Promise<TeamMember[]> => reply(live
+    ? remote.members.map(m => ({ name: m.name, role: m.title || (m.role === 'admin' ? 'Admin' : 'Team member'), permission: m.role === 'admin' ? 'Admin' as const : 'Member' as const }))
+    : seedTeam),
 }
 
 export const integrationsApi = {
@@ -177,7 +267,7 @@ export const searchApi = {
   },
 }
 
-export const systemApi = { reset() { store.reset(); toast('Sample data reset'); return Promise.resolve() } }
+export const systemApi = { reset() { if (live) return reloadLive(); store.reset(); toast('Sample data reset'); return Promise.resolve() } }
 
 export { enquiryPool }
 
@@ -195,7 +285,7 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): T | und
 }
 
 /* ---------- intelligence ---------- */
-export interface BotInput { name: string; description: string; instructions: string; model: BotModel; tools: BotTool[]; actions: BotAction[]; external: ExternalTool[]; active: boolean }
+export interface BotInput { name: string; description: string; instructions: string; model: BotModel; tools: BotTool[]; actions: BotAction[]; external: ExternalTool[]; active: boolean; schedule: BotSchedule }
 export const botsApi = {
   list: (): Promise<Bot[]> => reply([...store.get().bots].sort((a, b) => b.updatedAt - a.updatedAt)),
   get: (id: string): Promise<Bot | undefined> => reply(store.get().bots.find(a => a.id === id)),
@@ -211,6 +301,13 @@ export const botsApi = {
     if (a) { Object.assign(a, input, { updatedAt: Date.now(), updatedBy: 'Sarah Mitchell' }); toast('Agent saved', a.name) }
     return done()
   },
+  /** The agent's recent runs (live mode only: scheduled runs happen on the server). */
+  runs: (id: string): Promise<BotRun[]> => (live ? botRuns(id) : Promise.resolve([])),
+  /** Runs the agent once now and emails the result to its recipients. */
+  runNow(id: string): Promise<void> {
+    if (!live) { toast('Runs happen in the live portal', 'Connect Supabase to run agents on their own'); return Promise.resolve() }
+    return runAgent(id)
+  },
   remove(id: string) {
     const t = store.get(); const a = t.bots.find(x => x.id === id)
     t.bots = t.bots.filter(x => x.id !== id)
@@ -222,13 +319,13 @@ export const botsApi = {
 
 export const chatApi = {
   list: (): Promise<ChatConversation[]> => reply([...store.get().conversations].sort((a, b) => b.updatedAt - a.updatedAt)),
-  create(botId: string | null): Promise<ChatConversation> { const c = srv.createConversation(botId); store.commit(); return reply(c) },
+  create(botId: string | null): Promise<ChatConversation> { if (live) return liveChat.create(botId); const c = srv.createConversation(botId); store.commit(); return reply(c) },
   /** Adds the message and, a moment later, the assistant's answer. */
-  send(id: string, text: string) { srv.sendChat(id, text); return done() },
-  markRead(id: string) { const c = store.get().conversations.find(x => x.id === id); if (c?.unread) { c.unread = false; return done() } return Promise.resolve() },
+  send(id: string, text: string) { if (live) { void liveChat.send(id, text); return Promise.resolve() } srv.sendChat(id, text); return done() },
+  markRead(id: string) { if (live) { liveChat.markRead(id); return Promise.resolve() } const c = store.get().conversations.find(x => x.id === id); if (c?.unread) { c.unread = false; return done() } return Promise.resolve() },
   /** Carries out the change the assistant proposed. */
-  approve(id: string, messageId: string) { srv.approveChat(id, messageId); return done() },
-  decline(id: string, messageId: string) { srv.declineChat(id, messageId); return done() },
-  setBot(id: string, botId: string | null) { const c = store.get().conversations.find(x => x.id === id); if (c) c.botId = botId; return done() },
-  remove(id: string) { const t = store.get(); t.conversations = t.conversations.filter(c => c.id !== id); return done() },
+  approve(id: string, messageId: string) { if (live) return liveChat.decide(id, messageId, 'approve'); srv.approveChat(id, messageId); return done() },
+  decline(id: string, messageId: string) { if (live) return liveChat.decide(id, messageId, 'decline'); srv.declineChat(id, messageId); return done() },
+  setBot(id: string, botId: string | null) { if (live) return liveChat.setBot(id, botId); const c = store.get().conversations.find(x => x.id === id); if (c) c.botId = botId; return done() },
+  remove(id: string) { if (live) return liveChat.remove(id); const t = store.get(); t.conversations = t.conversations.filter(c => c.id !== id); return done() },
 }

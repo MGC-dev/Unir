@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { leadsApi, firmApi, useQuery } from '../../api'
+import { leadsApi, firmApi, servicesApi, templatesApi, useQuery } from '../../api'
 import { config } from '../../api/mockData'
 import type { Lead, SourceId } from '../../api/types'
 import { useUi } from '../../app/UiContext'
@@ -8,6 +8,7 @@ import { Field, Sheet, SheetFoot } from '../../shared/ui'
 import { Select } from '../../shared/Select'
 import { SRC_ICON } from './selectors'
 import { first, money } from '../../shared/format'
+import { fillIn } from '../campaigns/campaignUtils'
 
 const data = (e: React.FormEvent<HTMLFormElement>) => Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>
 
@@ -30,7 +31,7 @@ export function IntakeModal() {
         e.preventDefault()
         const d = data(e)
         if (!d.name.trim()) return
-        const l = await leadsApi.create(source, { name: d.name.trim(), phone: d.phone, practice: d.practice, matter: d.matter || d.practice, note: d.note })
+        const l = await leadsApi.create(source, { name: d.name.trim(), phone: d.phone, email: d.email?.trim(), practice: d.practice, matter: d.matter || d.practice, note: d.note })
         openModal(null); openLead(l.id)
       }}>
       <fieldset className="enq__section">
@@ -38,6 +39,7 @@ export function IntakeModal() {
         <div className="enq__grid">
           <label className="enq__field"><span>Full name</span><input id="qi-name" name="name" required autoFocus autoComplete="off" placeholder="e.g. Priya Shah" /></label>
           <label className="enq__field"><span>Phone</span><input id="qi-phone" name="phone" type="tel" inputMode="tel" placeholder="(555) 014-2290" /></label>
+          <label className="enq__field enq__field--wide"><span>Email <em>optional</em></span><input id="qi-email" name="email" type="email" autoComplete="off" placeholder="priya@example.com" /></label>
         </div>
       </fieldset>
 
@@ -61,14 +63,30 @@ export function IntakeModal() {
 export function ComposeModal({ lead: l }: { lead: Lead }) {
   const { openModal } = useUi()
   const firm = useQuery(() => firmApi.get())
+  const templates = useQuery(() => templatesApi.list())?.filter(x => x.channel === 'Text')
+  const catalog = useQuery(() => servicesApi.list())
+  const [template, setTemplate] = useState('none')
+  const [body, setBody] = useState(`Hi ${first(l.name)}, this is ${first(l.owner)} from Example Family Law. Is now a good time for a quick call about your ${l.matter.toLowerCase()}?`)
   const close = () => openModal(null)
+  /** Picking a template fills the message with it, inputs filled in from this lead. The text can still be edited. */
+  const pick = (id: string) => {
+    setTemplate(id)
+    const x = templates?.find(t => t.id === id)
+    if (!x) return
+    const svcNames = (l.serviceIds ?? []).map(s => catalog?.find(c => c.id === s)?.name).filter(Boolean).join(', ')
+    setBody(fillIn(x.body, l, firm?.name ?? '', x.tags, svcNames))
+  }
   return (
-    <Sheet title={`Text ${first(l.name)}`} sub={`From ${firm?.number ?? ''}`} onClose={close} foot={<SheetFoot onCancel={close} primary="Send Text" />}
-      onSubmit={async e => { e.preventDefault(); await leadsApi.sendText(l.id, data(e).body); openModal(null) }}>
+    <Sheet title={`Text ${first(l.name)}`} sub={`From ${firm?.number ?? ''}`} onClose={close} foot={<SheetFoot onCancel={close} primary="Send Text" disabled={!body.trim()} />}
+      onSubmit={async e => { e.preventDefault(); await leadsApi.sendText(l.id, body); openModal(null) }}>
       {firm && firm.textStatus !== 'registered' && <p className="hint hint--warn">Your texting number is not registered yet, so this text will be held.</p>}
       <div className="formgroup">
+        <Field label="Template" id="tx-tpl">
+          <Select contain id="tx-tpl" value={template} onChange={pick}
+            options={[{ value: 'none', label: templates?.length ? 'No template' : 'No text templates yet' }, ...(templates ?? []).map(x => ({ value: x.id, label: x.name }))]} />
+        </Field>
         <Field label="Message" id="tx" stack>
-          <textarea id="tx" name="body" autoFocus defaultValue={`Hi ${first(l.name)}, this is ${first(l.owner)} from Example Family Law. Is now a good time for a quick call about your ${l.matter.toLowerCase()}?`} />
+          <textarea id="tx" name="body" autoFocus value={body} onChange={e => setBody(e.target.value)} />
         </Field>
       </div>
     </Sheet>

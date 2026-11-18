@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { IconArrowLeft, IconPencil, IconTrash } from '@tabler/icons-react'
-import { campaignsApi, useQuery, type CampaignInput } from '../../api'
+import { campaignFoldersApi, campaignsApi, useQuery, type CampaignInput } from '../../api'
 import type { AudienceKey, Campaign, CampaignChannel, CampaignTag, Recipient, SurveyMetric } from '../../api/types'
 import { Select } from '../../shared/Select'
 import { useUi } from '../../app/UiContext'
@@ -42,6 +42,7 @@ export default function CampaignDetail() {
   const camps = useCampaigns()
   const firm = useFirm()
   const sending = useQuery(() => campaignsApi.progress())
+  const folders = useQuery(() => campaignFoldersApi.list())
   const c = camps?.find(x => x.id === id)
   const [editing, setEditing] = useState(!!(location.state as { edit?: boolean } | null)?.edit)
   const [draft, setDraft] = useState<CampaignInput>()
@@ -142,6 +143,12 @@ export default function CampaignDetail() {
         <section className="docv__card">
           <h3 className="lead__label">Details</h3>
           <div className="docv__rows">
+            {!!folders?.length && (
+              <div className="docv__row"><span>Folder</span>
+                <Select aria-label="Folder" value={folders.some(f => f.id === c.folderId) ? c.folderId! : 'none'} onChange={v => campaignsApi.move(c.id, v === 'none' ? null : v)}
+                  options={[{ value: 'none', label: 'No folder' }, ...folders.map(f => ({ value: f.id, label: f.name }))]} />
+              </div>
+            )}
             <div className="docv__row"><span>Type</span><b>{c.kind === 'survey' ? 'Survey' : c.kind === 'broadcast' ? 'One-off send' : 'Automatic'}</b></div>
             {c.kind === 'survey' && (
               <div className="docv__row"><span>Score</span>

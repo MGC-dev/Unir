@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { IconPencil } from '@tabler/icons-react'
 import { tasksApi, leadsApi, servicesApi, useQuery } from '../../api'
 import type { Lead, Service } from '../../api/types'
 import { useUi } from '../../app/UiContext'
@@ -16,7 +17,7 @@ export const docTitle = (l: Lead) => {
 }
 
 export function LeadInspector({ lead: l }: { lead: Lead }) {
-  const { openLead, openModal } = useUi()
+  const { openLead, openModal, openProfile } = useUi()
   const tasks = useQuery(() => tasksApi.list()) ?? []
   const catalog = useQuery(() => servicesApi.list()) ?? []
   const mine = (l.serviceIds ?? []).map(id => catalog.find(s => s.id === id)).filter((s): s is Service => !!s)
@@ -56,6 +57,7 @@ export function LeadInspector({ lead: l }: { lead: Lead }) {
             <h2 id="d-title">{l.name}</h2>
             <span className="footnote">{l.matter}</span>
           </div>
+          <button className="iconbtn" type="button" onClick={() => { openLead(null); openProfile(l.id, true) }} aria-label="Edit details" title="Edit details"><IconPencil size={17} stroke={2} /></button>
           <button className="closebtn" type="button" onClick={() => openLead(null)} aria-label="Close"><Icon name="x" /></button>
         </div>
         <div className="inspector__body">

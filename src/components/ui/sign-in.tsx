@@ -21,7 +21,8 @@ export interface SignInNote {
   text: string
 }
 
-export type SignInMode = 'sign-in' | 'create' | 'reset'
+/** set-password: choosing a new password after a reset or invite link. */
+export type SignInMode = 'sign-in' | 'create' | 'reset' | 'set-password'
 
 interface SignInPageProps {
   mode?: SignInMode
@@ -34,6 +35,12 @@ interface SignInPageProps {
   notes?: SignInNote[]
   /** Shown above the form, for example "Check your email". */
   message?: React.ReactNode
+  /** How the message reads: a note (default) or a problem to fix. */
+  messageTone?: 'info' | 'error'
+  /** While a request is running: the main button is disabled and says so. */
+  busy?: boolean
+  /** Show the "Create an account" link. Off when accounts are by invite only. */
+  allowCreate?: boolean
   logo?: React.ReactNode
   onSignIn?: (event: React.FormEvent<HTMLFormElement>) => void
   onGoogleSignIn?: () => void
@@ -78,6 +85,9 @@ export const SignInPage: React.FC<SignInPageProps> = ({
   aside,
   notes = [],
   message,
+  messageTone = 'info',
+  busy = false,
+  allowCreate = true,
   logo,
   onSignIn,
   onGoogleSignIn,
@@ -91,8 +101,8 @@ export const SignInPage: React.FC<SignInPageProps> = ({
   const password = (name: string, label: string, delay: string, autoComplete: string) => (
     <Field label={label} delay={delay}>
       <span className="relative block">
-        <input name={name} type={showPassword ? 'text' : 'password'} required minLength={mode === 'create' ? 8 : undefined} autoComplete={autoComplete}
-          placeholder={mode === 'create' ? 'At least 8 characters' : 'Enter your password'} className={`${inputCls} pr-12`} />
+        <input name={name} type={showPassword ? 'text' : 'password'} required minLength={mode === 'sign-in' ? undefined : 8} autoComplete={autoComplete}
+          placeholder={mode === 'sign-in' ? 'Enter your password' : 'At least 8 characters'} className={`${inputCls} pr-12`} />
         <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}
           className="absolute inset-y-0 right-3 flex items-center rounded-lg px-1 text-muted-foreground hover:text-foreground transition-colors">
           {showPassword ? <IconEyeOff className="w-5 h-5" stroke={1.7} /> : <IconEye className="w-5 h-5" stroke={1.7} />}
@@ -110,7 +120,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
           <div className="flex flex-col gap-6">
             <h1 className="animate-element animate-delay-100 text-4xl md:text-5xl font-semibold leading-tight">{title}</h1>
             <p className="animate-element animate-delay-200 text-muted-foreground">{description}</p>
-            {message && <div role="status" className="animate-element rounded-2xl border border-primary/25 bg-primary/[0.06] px-4 py-3 text-sm text-foreground">{message}</div>}
+            {message && <div role={messageTone === 'error' ? 'alert' : 'status'} className={'animate-element rounded-2xl border px-4 py-3 text-sm text-foreground ' + (messageTone === 'error' ? 'border-[#c23a45]/35 bg-[#c23a45]/[0.06]' : 'border-primary/25 bg-primary/[0.06]')}>{message}</div>}
 
             <form className="space-y-5" onSubmit={onSignIn}>
               {mode === 'create' && (
@@ -118,27 +128,36 @@ export const SignInPage: React.FC<SignInPageProps> = ({
                   <Field label="Your name" delay="animate-delay-300"><input name="name" required autoComplete="name" placeholder="Sarah Mitchell" className={inputCls} /></Field>
                 </>
               )}
-              <Field label="Email address" delay="animate-delay-300">
-                <input name="email" type="email" required autoComplete="email" placeholder="you@yourfirm.com" className={inputCls} />
-              </Field>
-              {mode !== 'reset' && password('password', 'Password', 'animate-delay-400', mode === 'create' ? 'new-password' : 'current-password')}
+              {mode === 'set-password' ? (
+                <>
+                  {password('password', 'New password', 'animate-delay-300', 'new-password')}
+                  {password('confirm', 'Confirm new password', 'animate-delay-400', 'new-password')}
+                </>
+              ) : (
+                <>
+                  <Field label="Email address" delay="animate-delay-300">
+                    <input name="email" type="email" required autoComplete="email" placeholder="you@yourfirm.com" className={inputCls} />
+                  </Field>
+                  {mode !== 'reset' && password('password', 'Password', 'animate-delay-400', mode === 'create' ? 'new-password' : 'current-password')}
+                </>
+              )}
 
               {mode === 'sign-in' && (
                 <div className="animate-element animate-delay-500 flex items-center justify-between text-sm">
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" name="rememberMe" className="custom-checkbox" />
+                    <input type="checkbox" name="rememberMe" defaultChecked className="custom-checkbox" />
                     <span className="text-foreground/90">Keep me signed in</span>
                   </label>
                   <a href="#" onClick={e => { e.preventDefault(); onResetPassword?.() }} className={link}>Reset password</a>
                 </div>
               )}
 
-              <button type="submit" className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-[#1a3566] active:scale-[.99] transition">
-                {mode === 'create' ? 'Create account' : mode === 'reset' ? 'Send reset link' : 'Sign in'}
+              <button type="submit" disabled={busy} aria-busy={busy} className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-[#1a3566] active:scale-[.99] transition disabled:opacity-60 disabled:pointer-events-none">
+                {busy ? 'One moment…' : mode === 'create' ? 'Create account' : mode === 'reset' ? 'Send reset link' : mode === 'set-password' ? 'Save password' : 'Sign in'}
               </button>
             </form>
 
-            {mode !== 'reset' && onGoogleSignIn && (
+            {(mode === 'sign-in' || mode === 'create') && onGoogleSignIn && (
               <>
                 <div className="animate-element animate-delay-700 relative flex items-center justify-center">
                   <span className="w-full border-t border-border" />
@@ -153,7 +172,9 @@ export const SignInPage: React.FC<SignInPageProps> = ({
 
             <p className="animate-element animate-delay-900 text-center text-sm text-muted-foreground">
               {mode === 'sign-in'
-                ? <>New to UNIR? <a href="#" onClick={e => { e.preventDefault(); onCreateAccount?.() }} className={link}>Create an account</a></>
+                ? allowCreate
+                  ? <>New to UNIR? <a href="#" onClick={e => { e.preventDefault(); onCreateAccount?.() }} className={link}>Create an account</a></>
+                  : <>New to UNIR? Ask your firm’s admin for an invite.</>
                 : <>{mode === 'create' ? 'Already have an account?' : 'Remembered it?'} <a href="#" onClick={e => { e.preventDefault(); onBackToSignIn?.() }} className={link}>Sign in</a></>}
             </p>
           </div>

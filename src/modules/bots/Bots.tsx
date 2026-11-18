@@ -141,7 +141,7 @@ export default function Bots() {
   // On a wide screen the most recent agent opens by itself.
   useEffect(() => { const first = active[0] ?? drafts[0]; if (!id && !phone && first) navigate(`/agents/${first.id}`, { replace: true }) }, [id, phone, filtered.length]) // eslint-disable-line react-hooks/exhaustive-deps
   // An agent's thread is made the first time it is opened.
-  useEffect(() => { if (bot && convs && !conv && making.current !== bot.id) { making.current = bot.id; chatApi.create(bot.id) } }, [bot?.id, convs, conv]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (bot && convs && !conv && making.current !== bot.id) { making.current = bot.id; chatApi.create(bot.id).catch(() => { making.current = '' }) } }, [bot?.id, convs, conv]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (conv?.unread) chatApi.markRead(conv.id) }, [conv?.unread, conv?.id, messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }) }, [messages.length, pending, id])
 

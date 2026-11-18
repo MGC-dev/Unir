@@ -5,18 +5,30 @@ import { toast } from '../shared/toast'
 import * as seed from './mockData'
 import { DAY, HOUR, config } from './mockData'
 import type {
-  Activity, Bot, BotAction, BotTool, ChatAction, ChatConversation, Task, AudienceKey, Campaign, CampaignTag, Firm, FirmEvent, Integration, Lead, NewCampaignInput, NewLeadInput,
+  Activity, Bot, BotAction, BotTool, ChatAction, ChatConversation, Task, AudienceKey, Campaign, CampaignFolder, MessageTemplate, CampaignTag, Firm, FirmEvent, Integration, Lead, NewCampaignInput, NewLeadInput,
   PortalDocument, Recipient, SendProgress, SentItem, Service, SourceId, StageId,
 } from './types'
 // The mock backend fills a campaign's inputs the way a real one would on send: from the ticket, the firm or the date
 import { prefillValue } from '../modules/documents/documentFields'
+import { supabase } from '../lib/supabase'
 
-interface Tables {
+/**
+ * Live mode: Supabase is configured, so the tables below hold the signed-in firm's real data (loaded and saved by
+ * ./remote.ts) instead of the sample firm. The business rules here stay the same; anything that would only pretend
+ * to send a message hands off to the real server functions (see hooks) or is recorded as held.
+ */
+export const live = !!supabase
+/** Set by ./remote.ts in live mode. */
+export const hooks: { autoEmail?: (c: Campaign, l: Lead) => void; broadcast?: (c: Campaign) => void; reload?: () => void } = {}
+
+export interface Tables {
   leads: Lead[]
   tasks: Task[]
   events: FirmEvent[]
   integrations: Integration[]
   campaigns: Campaign[]
+  campaignFolders: CampaignFolder[]
+  templates: MessageTemplate[]
   documents: PortalDocument[]
   services: Service[]
   bots: Bot[]
@@ -27,19 +39,32 @@ interface Tables {
 
 const build = (): Tables => {
   const leads = seed.leads()
-  return { leads, tasks: seed.tasks(), events: seed.firmEvents(), integrations: seed.integrations(), campaigns: seed.campaigns(leads), documents: seed.documents(), services: seed.services(), bots: seed.bots(), conversations: seed.conversations(seed.bots()), firm: seed.firm(), sending: null }
+  return { leads, tasks: seed.tasks(), events: seed.firmEvents(), integrations: seed.integrations(), campaigns: seed.campaigns(leads), campaignFolders: seed.campaignFolders(), templates: seed.templates(), documents: seed.documents(), services: seed.services(), bots: seed.bots(), conversations: seed.conversations(seed.bots()), firm: seed.firm(), sending: null }
 }
 // The mock backend keeps its tables in localStorage so a refresh does not lose work; "Reset Sample Data" clears it.
 const KEY = 'unir-portal-mock-v12' // v4: added the services catalog and the Payment Pending stage
 const load = (): Tables => {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) { const x = JSON.parse(raw) as Tables; if (x.leads && x.tasks && x.firm && x.documents && x.services && x.bots && x.conversations) return { ...x, sending: null, conversations: x.conversations.map(c => ({ ...c, pending: false })) } }
+    if (raw) { const x = JSON.parse(raw) as Tables; if (x.leads && x.tasks && x.firm && x.documents && x.services && x.bots && x.conversations) return { ...x, templates: x.templates ?? seed.templates(), ...(x.campaignFolders ? {} : migrateFolders(x)), sending: null, conversations: x.conversations.map(c => ({ ...c, pending: false })) } }
   } catch { /* unavailable or corrupt: start from the seed */ }
   return build()
 }
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(t)) } catch { /* storage full or blocked */ } }
-let t: Tables = load()
+/** Saved data from before folders: add the starter folders and file the starter campaigns into them. */
+const migrateFolders = (x: Tables) => ({
+  campaignFolders: seed.campaignFolders(),
+  campaigns: x.campaigns.map(c => ({ ...c, folderId: c.folderId ?? seed.SEED_FOLDER[c.id] })),
+})
+/** Empty tables for live mode, before the firm's data arrives. */
+export const emptyTables = (): Tables => ({
+  leads: [], tasks: [], events: [], integrations: seed.integrations().map(i => ({ ...i, on: false })), campaigns: [], campaignFolders: [], templates: [],
+  documents: [], services: [], bots: [], conversations: [], firm: { name: '', domain: '', number: '', domainStatus: 'unverified', textStatus: 'unregistered' }, sending: null,
+})
+const save = () => {
+  if (live) return // live data is saved to the server by ./remote.ts
+  try { localStorage.setItem(KEY, JSON.stringify(t)) } catch { /* storage full or blocked */ }
+}
+let t: Tables = live ? emptyTables() : load()
 let version = 0
 const listeners = new Set<() => void>()
 export const store = {
@@ -47,16 +72,19 @@ export const store = {
   version: () => version,
   subscribe(l: () => void) { listeners.add(l); return () => { listeners.delete(l) } },
   commit() { version++; save(); listeners.forEach(l => l()) },
-  reset() { t = build(); store.commit() },
+  reset() { if (live) { hooks.reload?.(); return } t = build(); store.commit() },
+  /** Live mode: swaps in the firm's data from the server (no local save). */
+  replace(next: Tables) { t = next; version++; listeners.forEach(l => l()) },
 }
 
-export const uid = (p = '') => p + Math.random().toString(36).slice(2, 9)
+export const uid = (p = '') => (live ? crypto.randomUUID() : p + Math.random().toString(36).slice(2, 9))
 export const first = (n: string) => n.split(' ')[0]
 const slug = (n: string) => n.toLowerCase().replace(/[^a-z]+/g, '.')
 const STAGE = Object.fromEntries(config.stages.map((s, i) => [s.id, { ...s, i }])) as Record<string, { id: StageId; label: string; next: string; i: number }>
 export const isWon = (l: Lead) => l.stage === 'signed' || l.stage === 'payment' || l.stage === 'delivered'
-export const canText = () => t.firm.textStatus === 'registered'
-export const canEmail = () => t.firm.domainStatus === 'verified'
+// In live mode nothing is simulated: texts have no provider yet, and emails go through the server functions.
+export const canText = () => !live && t.firm.textStatus === 'registered'
+export const canEmail = () => !live && t.firm.domainStatus === 'verified'
 const findLead = (id: string) => { const l = t.leads.find(x => x.id === id); if (!l) throw new Error(`Lead ${id} not found`); return l }
 const log = (l: Lead, a: Partial<Activity> & Pick<Activity, 'type' | 'title'>) => { l.activities.push({ t: Date.now(), cls: '', ...a }) }
 const quoteOf = (s: string) => { const x = s.replace(/\s+/g, ' '); return x.length > 140 ? x.slice(0, 140).replace(/[\s.,]+$/, '') + '…' : x }
@@ -91,6 +119,11 @@ const stageTrigger = (stage: StageId) => `A ticket moves to ${stage === 'lost' ?
 
 function fire(trigger: string, l: Lead) {
   t.campaigns.filter(c => c.kind === 'auto' && c.active && c.trigger === trigger).forEach(c => {
+    if (live) {
+      if (/Email/.test(c.channel)) hooks.autoEmail?.(c, l)
+      if (/Text/.test(c.channel)) log(l, { type: 'text', cls: 'bad', title: `${c.name} text held`, text: 'No texting provider is connected yet.' })
+      return
+    }
     const body = fill(c.body, l, c.tags)
     if (/Text/.test(c.channel)) {
       c.recipients.unshift({ id: l.id, name: l.name, channel: 'Text', status: canText() ? 'delivered' : 'held', at: Date.now() })
@@ -110,10 +143,10 @@ export function createLead(channel: SourceId, data?: NewLeadInput): Lead {
   const used = new Set(t.leads.map(l => l.name))
   const fallback = seed.enquiryPool[t.leads.length % seed.enquiryPool.length]
   const p = data ?? seed.enquiryPool.find(x => !used.has(x.name)) ?? { ...fallback, name: `${fallback.name} ${t.leads.length + 1}` }
-  const phone = (data && data.phone) || `(555) 01${Math.floor(Math.random() * 10)}-${Math.floor(Math.random() * 9000 + 1000)}`
+  const phone = (data && data.phone) || (live ? '' : `(555) 01${Math.floor(Math.random() * 10)}-${Math.floor(Math.random() * 9000 + 1000)}`)
   const l: Lead = {
-    id: uid('l'), name: p.name, email: `${slug(p.name)}@example.com`, phone, matter: p.matter, practice: p.practice, value: +(p.value ?? 0) || 0,
-    source: channel, stage: 'new', owner: config.owners[t.leads.length % 4], created: Date.now(), activities: [], doc: null, lostReason: null,
+    id: uid('l'), name: p.name, email: (data && data.email) || (live ? '' : `${slug(p.name)}@example.com`), phone, matter: p.matter, practice: p.practice, value: +(p.value ?? 0) || 0,
+    source: channel, stage: 'new', owner: config.owners[t.leads.length % Math.max(1, config.owners.length)] ?? '', created: Date.now(), activities: [], doc: null, lostReason: null,
     notes: (data && 'note' in data ? data.note : undefined)?.trim() || undefined,
   }
   const how = { web: 'Submitted the enquiry form on your website.', email: `Emailed intake@${t.firm.domain}.`, text: `Texted ${t.firm.number}.`, manual: 'Logged by staff with Quick Intake.', referral: 'Referred by a client.', ads: 'Came from a Google Ads lead form.' }[channel]
@@ -172,7 +205,7 @@ export function sendContract(l: Lead, fromStage = false, items?: SentItem[]) {
   l.doc = { status: 'sent', sent: Date.now(), items: packet }
   const ch = [canEmail() ? 'email' : null, canText() ? 'text link' : null].filter(Boolean).join(' and ') || 'link, held until sending is set up in Settings'
   const names = packet.map(i => i.name)
-  log(l, { type: 'doc', cls: 'auto', title: packet.length > 1 ? `${packet.length} documents sent for signature` : `${names[0]} sent for signature`, text: `${packet.length > 1 ? names.join(', ') + '. ' : ''}Sent by ${ch}.` })
+  log(l, { type: 'doc', cls: 'auto', title: packet.length > 1 ? `${packet.length} documents sent for signature` : `${names[0]} sent for signature`, text: `${packet.length > 1 ? names.join(', ') + '. ' : ''}${live ? 'Recorded. E-signature isn’t connected yet, so send the documents yourself for now.' : `Sent by ${ch}.`}` })
   if (!fromStage) { l.stage = 'contract'; log(l, { type: 'stage', title: 'Moved to Contract Sent', text: 'Next step booked: waiting for signature.' }); rebookNextStep(l); fire(stageTrigger('contract'), l) }
   toast(packet.length > 1 ? `${packet.length} documents sent to ${first(l.name)}` : `${names[0]} sent to ${first(l.name)}`, 'Lead moved to Contract Sent')
 }
@@ -208,7 +241,23 @@ export function markLost(l: Lead, reason: string) {
   toast(`${l.name} marked as lost`, reason)
 }
 
+const FIELD_LABEL: Record<string, string> = { name: 'name', email: 'email', phone: 'phone', matter: 'matter', practice: 'practice area', source: 'source', owner: 'owner', notes: 'notes', optedOut: 'messaging' }
+/** Edits a lead's details and notes what changed on its timeline. */
+export function updateLead(l: Lead, patch: Partial<Pick<Lead, 'name' | 'email' | 'phone' | 'matter' | 'practice' | 'source' | 'owner' | 'notes' | 'optedOut'>>) {
+  const changed = (Object.keys(patch) as (keyof typeof patch)[]).filter(k => (patch[k] ?? '') !== (l[k] ?? '') && !(k === 'optedOut' && !!patch[k] === !!l[k]))
+  if (!changed.length) return
+  Object.assign(l, patch)
+  if (!l.notes) l.notes = undefined
+  if (!l.optedOut) l.optedOut = undefined
+  const what = changed.map(k => FIELD_LABEL[k]).join(', ')
+  log(l, { type: 'stage', title: 'Details updated', text: changed.includes('optedOut') ? `${what[0].toUpperCase()}${what.slice(1)} changed. ${l.optedOut ? 'No more messages will be sent.' : 'Messages can be sent again.'}` : `${what[0].toUpperCase()}${what.slice(1)} changed.` })
+  // Moving the lead to someone else moves its open steps with it.
+  if (changed.includes('owner')) t.tasks.forEach(a => { if (a.leadId === l.id && !a.done) a.assignedTo = l.owner })
+  toast('Lead updated', l.name)
+}
+
 export function sendText(l: Lead, body: string) {
+  if (live) { log(l, { type: 'text', cls: 'bad', title: 'Text held', text: 'No texting provider is connected yet.', quote: body }); toast('Text held', 'No texting provider is connected yet'); return }
   if (canText()) { log(l, { type: 'text', title: `Text sent by ${l.owner}`, text: `From ${t.firm.number}.`, quote: body }); toast(`Text sent to ${first(l.name)}`, `From ${t.firm.number}`) }
   else { log(l, { type: 'text', cls: 'bad', title: 'Text held', text: 'Your texting number is not registered yet.', quote: body }); toast('Text held', 'Register your number in Settings') }
 }
@@ -238,7 +287,7 @@ export function launchCampaign(c: Campaign) {
 }
 
 export function createCampaign(d: NewCampaignInput): Campaign {
-  const c: Campaign = { id: uid('c'), kind: d.kind, metric: d.kind === 'survey' ? d.metric ?? 'nps' : undefined, name: d.name, channel: d.channel, steps: 1, sent: 0, subject: /Email/.test(d.channel) ? d.subject : '', body: d.body, recipients: [], tags: d.tags?.length ? d.tags : undefined }
+  const c: Campaign = { id: uid('c'), kind: d.kind, metric: d.kind === 'survey' ? d.metric ?? 'nps' : undefined, name: d.name, channel: d.channel, steps: 1, sent: 0, subject: /Email/.test(d.channel) ? d.subject : '', body: d.body, recipients: [], tags: d.tags?.length ? d.tags : undefined, folderId: d.folderId || undefined }
   if (d.draft) {
     c.draft = true; c.active = false; c.trigger = d.trigger; c.audience = d.audience
     if (d.kind === 'auto') t.campaigns.push(c); else t.campaigns.unshift(c)
@@ -256,6 +305,7 @@ export function createCampaign(d: NewCampaignInput): Campaign {
 }
 
 function sendBroadcast(c: Campaign) {
+  if (live) { hooks.broadcast?.(c); return }
   const people = audience(c.audience!)
   t.sending = { id: c.id, total: people.length, done: 0 }
   const REPLIES = ['Yes, please call me tomorrow.', 'Thanks, I will book a time.', 'Can we talk next week?']

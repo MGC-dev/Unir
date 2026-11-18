@@ -6,6 +6,7 @@ import './index.css'
 import './styles/tokens.css'
 import './styles/portal.css'
 import './styles/theme.css'
+import { AuthProvider, RequireAuth } from './app/auth'
 import AppShell from './app/AppShell'
 import Dashboard from './modules/dashboard/Dashboard'
 import Pipeline from './modules/pipeline/Pipeline'
@@ -28,14 +29,17 @@ import Settings from './modules/settings/Settings'
 // the public landing page loads on its own, so the portal doesn't carry it
 const Landing = lazy(() => import('./modules/landing/Landing'))
 const SignIn = lazy(() => import('./modules/auth/SignIn'))
+const Unsubscribe = lazy(() => import('./modules/auth/Unsubscribe'))
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <AuthProvider>
       <Routes>
         <Route path="welcome" element={<Suspense fallback={null}><Landing /></Suspense>} />
         <Route path="sign-in" element={<Suspense fallback={null}><SignIn /></Suspense>} />
-        <Route element={<AppShell />}>
+        <Route path="unsubscribe" element={<Suspense fallback={null}><Unsubscribe /></Suspense>} />
+        <Route element={<RequireAuth><AppShell /></RequireAuth>}>
           <Route index element={<Dashboard />} />
           <Route path="pipeline" element={<Pipeline />} />
           <Route path="leads" element={<Leads />} />
@@ -62,6 +66,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
+      </AuthProvider>
     </BrowserRouter>
   </StrictMode>,
 )
