@@ -44,10 +44,10 @@ export const enquiryPool = [
 ]
 
 export const team: TeamMember[] = [
-  { name: 'Sarah Mitchell', role: 'Intake Manager', permission: 'Admin' },
-  { name: 'David Cohen', role: 'Attorney', permission: 'Member' },
-  { name: 'Priya Nair', role: 'Paralegal', permission: 'Member' },
-  { name: 'James Okafor', role: 'Intake Specialist', permission: 'Member' },
+  { name: 'Sarah Mitchell', role: 'Intake Manager', permission: 'Admin', status: 'accepted' },
+  { name: 'David Cohen', role: 'Attorney', permission: 'Member', status: 'accepted' },
+  { name: 'Priya Nair', role: 'Paralegal', permission: 'Member', status: 'accepted' },
+  { name: 'James Okafor', role: 'Intake Specialist', permission: 'Member', status: 'pending', email: 'james@examplefamilylaw.com', invitedAt: Date.now() - 2 * 864e5 },
 ]
 
 export const firm = (): Firm => ({

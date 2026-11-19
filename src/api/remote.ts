@@ -17,7 +17,7 @@ type Row = Record<string, unknown>
 // deno-lint-ignore no-explicit-any
 type Any = any
 
-export interface Member { id: string; name: string; role: 'admin' | 'member'; title: string }
+export interface Member { id: string; name: string; role: 'admin' | 'member'; title: string; email?: string; invitedAt?: number; status?: 'pending' | 'accepted' }
 export type RemoteState = 'idle' | 'loading' | 'ready' | 'no-firm' | 'error'
 
 let state: RemoteState = 'idle'
@@ -55,15 +55,26 @@ async function all(table: string, order = 'created_at', ascending = false, filte
 }
 const group = (rows: Any[], key: string) => rows.reduce<Record<string, Any[]>>((m, r) => ((m[r[key]] ||= []).push(r), m), {})
 
+/** Each teammate's email and whether they've accepted their invite. Empty if the server doesn't have it yet. */
+async function memberStatuses(fid: string): Promise<Record<string, Any>> {
+  const { data, error } = await sb().rpc('firm_member_status', { f: fid })
+  if (error) { console.warn('Invite status unavailable:', error.message); return {} }
+  return Object.fromEntries((data ?? []).map((r: Any) => [r.user_id, r]))
+}
+
 /* ---------- server rows → the portal's shapes ---------- */
 
 async function fetchAll(): Promise<Tables> {
   const fid = remote.firmId
-  const [firms, members] = await Promise.all([all('firms', 'created_at', true, ['id', fid]), all('firm_members')])
-  remote.members = members.map(m => ({
-    id: m.user_id, role: m.role, title: m.title ?? '',
-    name: m.full_name || (m.user_id === remote.userId ? remote.email : 'Teammate'),
-  }))
+  const [firms, members, statuses] = await Promise.all([all('firms', 'created_at', true, ['id', fid]), all('firm_members'), memberStatuses(fid)])
+  remote.members = members.map(m => {
+    const s = statuses[m.user_id]
+    return {
+      id: m.user_id, role: m.role, title: m.title ?? '',
+      name: m.full_name || (m.user_id === remote.userId ? remote.email : s?.email || 'Teammate'),
+      email: s?.email ?? undefined, invitedAt: ms(s?.invited_at), status: s ? (s.accepted ? 'accepted' : 'pending') : undefined,
+    }
+  })
   const [leads, acts, lsvc, packets, tasks, events, services, docs, folders, camps, recips, templates, integ, bots, convs] = await Promise.all([
     all('leads'), all('lead_activities', 'at', true), all('lead_services', 'lead_id'), all('engagement_packets', 'sent_at'),
     all('tasks', 'due_at', true), all('firm_events', 'starts_at', true), all('services'), all('documents', 'updated_at'),

@@ -230,7 +230,8 @@ export const firmApi = {
     return uploadLogo(file)
   },
   team: (): Promise<TeamMember[]> => reply(live
-    ? remote.members.map(m => ({ name: m.name, role: m.title || (m.role === 'admin' ? 'Admin' : 'Team member'), permission: m.role === 'admin' ? 'Admin' as const : 'Member' as const }))
+    ? remote.members.map(m => ({ name: m.name, role: m.title || (m.role === 'admin' ? 'Admin' : 'Team member'), permission: m.role === 'admin' ? 'Admin' as const : 'Member' as const,
+        status: m.status, email: m.email, invitedAt: m.invitedAt }))
     : seedTeam),
 }
 

@@ -197,7 +197,11 @@ export interface CampaignFolder { id: string; name: string; createdAt: number }
 
 export interface SendProgress { id: string; total: number; done: number }
 
-export interface TeamMember { name: string; role: string; permission: 'Admin' | 'Member' }
+export interface TeamMember {
+  name: string; role: string; permission: 'Admin' | 'Member'
+  /** pending: invited, hasn't opened the invite email yet. Unknown when the server can't say. */
+  status?: 'pending' | 'accepted'; email?: string; invitedAt?: number
+}
 
 export interface NewLeadInput {
   name: string; phone?: string; email?: string; practice: string; matter: string; value?: number; note?: string

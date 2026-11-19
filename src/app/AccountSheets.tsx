@@ -4,6 +4,7 @@ import { firmApi, live, systemApi, useQuery } from '../api'
 import { toast } from '../shared/toast'
 import { Icon } from '../shared/Icon'
 import { Sheet, Tag } from '../shared/ui'
+import { ago } from '../shared/format'
 import { Select } from '../shared/Select'
 import { VIEWS, TABS } from './nav'
 import { useUi } from './UiContext'
@@ -68,9 +69,12 @@ export function AccountSheet({ kind }: { kind: Kind }) {
     <Sheet title="Team and Permissions" sub={`${firm?.name ?? ''} manages who has access.`} onClose={close}>
       <ul className="group rows">
         {team.map(m => (
-          <li key={m.name}><div className="row" style={{ cursor: 'default' }}>
-            <span className="avatar" style={{ background: 'var(--tint-soft)', color: 'var(--tint-soft-ink)' }} aria-hidden="true">{m.name.split(' ').map(x => x[0]).join('')}</span>
-            <span className="row__main"><b>{m.name}</b><span>{m.role}</span></span>
+          <li key={m.email ?? m.name}><div className="row" style={{ cursor: 'default' }}>
+            <span className="avatar" style={{ background: 'var(--tint-soft)', color: 'var(--tint-soft-ink)' }} aria-hidden="true">{m.name.split(/[\s@]/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('')}</span>
+            <span className="row__main"><b>{m.name}</b><span>{m.status === 'pending'
+              ? ['Invite sent' + (m.invitedAt ? ' ' + ago(m.invitedAt).toLowerCase() : ''), m.email !== m.name ? m.email : null].filter(Boolean).join(' · ')
+              : m.role}</span></span>
+            {m.status && <Tag tone={m.status === 'pending' ? 'orange' : 'green'}>{m.status === 'pending' ? 'Pending' : 'Accepted'}</Tag>}
             <Tag tone={m.permission === 'Admin' ? 'accent' : undefined}>{m.permission}</Tag>
           </div></li>
         ))}
