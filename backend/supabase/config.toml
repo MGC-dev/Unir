@@ -3,8 +3,12 @@
 project_id = "mgc-lead-portal"
 
 [auth]
-site_url = "http://localhost:5173"
-additional_redirect_urls = ["http://localhost:5173/**"]
+# Live site on Cloudflare; localhost stays allowed for local development.
+site_url = "https://unir.developers-a4a.workers.dev"
+additional_redirect_urls = [
+  "https://unir.developers-a4a.workers.dev/**",
+  "http://localhost:5173/**",
+]
 # Invite only: MGC onboards firms, and firm admins invite their team.
 enable_signup = false
 
