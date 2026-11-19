@@ -327,7 +327,7 @@ body.portal-lock { overflow: hidden; }
 .portal .card__value { font-size: 14px; font-weight: 700; color: var(--navy); }
 .portal .card__phone { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--label-2); font-variant-numeric: tabular-nums; }
 .portal .card__phone .icon { color: var(--label-3); }
-.portal .card__notes { padding: 8px 10px; border-radius: 9px; background: var(--fill-2); border-left: 3px solid var(--accent); font-size: 12.5px; line-height: 1.4; color: var(--label-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.portal .card__notes { padding: 8px 10px; border-radius: 9px; background: var(--fill-2); font-size: 12.5px; line-height: 1.4; color: var(--label-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* ---------- lead side panel: same language as the Add Enquiry dialog ---------- */
 .portal .inspector.lead { width: min(480px, 100%); background: #fff; border-left: 1px solid var(--separator-soft); box-shadow: var(--shadow-float); }
