@@ -6,5 +6,9 @@
     "directory": "./dist",
     // Deep links (e.g. /pipeline) fall back to the app shell.
     "not_found_handling": "single-page-application"
+  },
+  // Matches the dashboard; set to true to keep request logs in Workers Logs.
+  "observability": {
+    "enabled": false
   }
 }
