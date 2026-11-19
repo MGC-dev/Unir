@@ -26,9 +26,9 @@ const reached = (c: Ctx, n: number) => !!c.lead && c.lead.stage !== 'lost' && ID
 
 const STEPS: Step[] = [
   { title: 'Onboard the Firm', body: 'Each firm sends from its own domain and number. Verify the email domain, then register texting with US carriers.', go: 'Do It for Me', done: c => c.firmReady,
-    run: async c => { c.navigate('/settings'); const f = await firmApi.get(); if (f.domainStatus !== 'verified') { await firmApi.verifyDomain(); await wait(1700) } if (f.textStatus !== 'registered') { await firmApi.submitTexting(); await wait(900); await firmApi.approveTexting() } } },
+    run: async c => { c.navigate('/dashboard/settings'); const f = await firmApi.get(); if (f.domainStatus !== 'verified') { await firmApi.verifyDomain(); await wait(1700) } if (f.textStatus !== 'registered') { await firmApi.submitTexting(); await wait(900); await firmApi.approveTexting() } } },
   { title: 'An Enquiry Arrives', body: 'A visitor fills in the website form. The lead is created, assigned, and gets an instant text reply from the firm’s number.', go: 'Send an Enquiry', done: c => !!c.lead,
-    run: async c => { c.navigate('/pipeline'); const l = await leadsApi.create('web'); tourStore.set({ leadId: l.id }); setTimeout(() => c.ui.openLead(l.id), 700) } },
+    run: async c => { c.navigate('/dashboard/pipeline'); const l = await leadsApi.create('web'); tourStore.set({ leadId: l.id }); setTimeout(() => c.ui.openLead(l.id), 700) } },
   { title: 'The Team Works It', body: 'The owner calls, then books a consultation. Each stage books its next step, and the reminder goes out by text and email.', go: 'Call and Book', done: c => reached(c, 2),
     run: async c => { const l = await tourLead(); c.ui.openLead(l.id); if (l.stage === 'new') { await leadsApi.logCall(l.id); await wait(900) } await leadsApi.setStage(l.id, 'consult') } },
   { title: 'The Contract Goes Out', body: 'After attorney review, the engagement letter is sent by email and text link. The lead moves to Contract Sent.', go: 'Send the Letter', done: c => reached(c, 3),
@@ -37,8 +37,8 @@ const STEPS: Step[] = [
     run: async c => { let l = await tourLead(); if (!l.doc) { await leadsApi.sendContract(l.id); l = await tourLead() } c.ui.openLead(l.id); c.ui.openModal({ type: 'client', id: l.id }) } },
   { title: 'Services Provided', body: 'The retainer is requested and collected, the work is delivered and the matter is closed. Any lead can also be marked as lost, with a reason.', go: 'Close the Matter', done: c => c.lead?.stage === 'delivered',
     run: async c => { let l = await tourLead(); if (l.doc?.status !== 'signed') { if (!l.doc) await leadsApi.sendContract(l.id); await leadsApi.sign(l.id, l.name); l = await tourLead() } await leadsApi.setStage(l.id, 'payment'); await wait(800); await leadsApi.setStage(l.id, 'delivered'); c.ui.openModal(null); c.ui.openLead(l.id) } },
-  { title: 'Prove What Converts', body: 'Reports update as you work: leads by source, what signed, and why leads were lost.', go: 'Open Reports', done: c => c.pathname === '/reports',
-    run: c => { c.ui.closeAll(); c.navigate('/reports') } },
+  { title: 'Prove What Converts', body: 'Reports update as you work: leads by source, what signed, and why leads were lost.', go: 'Open Reports', done: c => c.pathname === '/dashboard/reports',
+    run: c => { c.ui.closeAll(); c.navigate('/dashboard/reports') } },
 ]
 
 /** Floating, dismissible product tour that drives the real app through the lead journey. */

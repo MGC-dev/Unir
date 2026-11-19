@@ -51,7 +51,7 @@ person) or the system did it. Firm admins can read their firm's log; nobody can 
    - turn off "Allow new users to sign up";
    - URL Configuration: set the Site URL (the portal's address) and add `http://localhost:5173/**` as a redirect URL;
    - Email Templates: in **Invite user**, make the link
-     `{{ .SiteURL }}/sign-in?set-password&token_hash={{ .TokenHash }}&type=invite`, and in **Reset password**
+     `{{ .SiteURL }}/auth/set-password?token_hash={{ .TokenHash }}&type=invite`, and in **Reset password**
      the same with `type=recovery`. People then land on the portal's "Choose a password" page.
 7. In Resend: verify each firm's sending domain, and add a webhook to
    `https://<project ref>.supabase.co/functions/v1/resend-webhook` for delivered, opened, bounced and complained events.

@@ -40,7 +40,7 @@ export default function Documents() {
     (!term || `${d.name} ${d.description} ${d.category}`.toLowerCase().includes(term)))
   const rows = sortRows(filtered, view, (a, b) => b.updatedAt - a.updatedAt)
 
-  const add = async () => { const d = await documentsApi.create(); navigate(`/documents/${d.id}`, { state: { edit: true } }) }
+  const add = async () => { const d = await documentsApi.create(); navigate(`/dashboard/documents/${d.id}`, { state: { edit: true } }) }
 
   return (
     <>
@@ -56,10 +56,10 @@ export default function Documents() {
 
       {!docs ? null : !rows.length ? <Empty icon="folder">No documents match these filters.</Empty> : (
         <>
-          <DataTable rows={rows} view={view} rowKey={d => d.id} onOpen={d => navigate(`/documents/${d.id}`)} sortLabel="Sort documents" />
+          <DataTable rows={rows} view={view} rowKey={d => d.id} onOpen={d => navigate(`/dashboard/documents/${d.id}`)} sortLabel="Sort documents" />
           <ul className="lcards only-phone">{rows.map(d => (
             <li key={d.id}>
-              <button type="button" className="lcard" onClick={() => navigate(`/documents/${d.id}`)}>
+              <button type="button" className="lcard" onClick={() => navigate(`/dashboard/documents/${d.id}`)}>
                 <span className="lcard__top"><span className="ltable__avatar ltable__avatar--doc" aria-hidden="true"><Icon name="doc" /></span>
                   <span className="lcard__who"><b>{d.name}</b><small>{d.description || 'No description'}</small></span></span>
                 <span className="lcard__meta"><Tag tone="tint">{d.category}</Tag>{d.active ? <Tag tone="green" icon="check">Active</Tag> : <Tag>Draft</Tag>}</span>

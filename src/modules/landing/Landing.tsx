@@ -16,6 +16,7 @@ import googleAdsLogo from './logos/google-ads.svg'
 import googleCalendarLogo from './logos/google-calendar.svg'
 import outlookLogo from './logos/outlook.svg'
 import gmailLogo from './logos/gmail.svg'
+import { AUTH, DASHBOARD, HOME } from '../../app/paths'
 
 /* ------------------------------------------------------------------ small parts */
 
@@ -26,7 +27,7 @@ const Eyebrow = ({ children, dark }: { children: ReactNode; dark?: boolean }) =>
 const Mark = () => (
   <svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><rect width="64" height="64" rx="14" fill="currentColor" /><path d="M20 16v21a12 12 0 0 0 24 0V16" fill="none" stroke="var(--lp-bg)" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" /><rect x="20" y="50" width="24" height="3" rx="1.5" fill="#d4a954" /></svg>
 )
-const Logo = () => <Link to="/welcome" className="lp-logo"><Mark /><span>UNIR</span></Link>
+const Logo = () => <Link to={HOME} className="lp-logo"><Mark /><span>UNIR</span></Link>
 
 /** Where leads come from, with each company's own logo. Wordmarks carry the name; icon logos sit beside it. */
 const SOURCES: { name: string; logo?: string; wordmark?: boolean }[] = [
@@ -147,12 +148,12 @@ export default function Landing() {
           <Logo />
           <nav className="lp-nav__links" aria-label="Main">{nav.map(([l, h]) => <a key={h} href={h}>{l}</a>)}</nav>
           <div className="lp-nav__end">
-            <Link to="/sign-in" className="lp-link">Sign in</Link>
-            <Link to="/sign-in?create" className="lp-btn lp-btn--sm">Get started</Link>
+            <Link to={AUTH['sign-in']} className="lp-link">Sign in</Link>
+            <Link to={AUTH.create} className="lp-btn lp-btn--sm">Get started</Link>
             <button type="button" className="lp-nav__menu" aria-label={menu ? 'Close menu' : 'Open menu'} aria-expanded={menu} onClick={() => setMenu(m => !m)}>{menu ? <IconX size={20} /> : <IconMenu2 size={20} />}</button>
           </div>
         </div>
-        {menu && <nav className="lp-nav__sheet" aria-label="Main">{nav.map(([l, h]) => <a key={h} href={h} onClick={() => setMenu(false)}>{l}</a>)}<Link to="/sign-in">Sign in</Link></nav>}
+        {menu && <nav className="lp-nav__sheet" aria-label="Main">{nav.map(([l, h]) => <a key={h} href={h} onClick={() => setMenu(false)}>{l}</a>)}<Link to={AUTH['sign-in']}>Sign in</Link></nav>}
       </header>
 
       <main>
@@ -164,7 +165,7 @@ export default function Landing() {
             <div className="lp-hero__side">
               <p>UNIR brings your firm’s new leads into one place, follows up by text and email within minutes, books the consultation and sends the contract for signature.</p>
               <div className="lp-actions">
-                <Link to="/" className="lp-btn">Open the demo <IconArrowRight size={16} /></Link>
+                <Link to={DASHBOARD} className="lp-btn">Open the demo <IconArrowRight size={16} /></Link>
                 <a href={BOOKING} className="lp-btn lp-btn--ghost">Book a walkthrough</a>
               </div>
             </div>
@@ -202,7 +203,7 @@ export default function Landing() {
         <section id="product" className="lp-section">
           <div className="lp-wrap lp-head">
             <div><Eyebrow>Product</Eyebrow><h2>Everything intake needs, in one place</h2></div>
-            <Link to="/" className="lp-btn lp-btn--ghost">Explore the portal <IconArrowUpRight size={16} /></Link>
+            <Link to={DASHBOARD} className="lp-btn lp-btn--ghost">Explore the portal <IconArrowUpRight size={16} /></Link>
           </div>
           <div className="lp-wrap lp-caps">
             {CAPS.map((c, i) => (
@@ -306,7 +307,7 @@ export default function Landing() {
             <Eyebrow>Get started</Eyebrow>
             <h2>Ready to stop losing new clients?</h2>
             <div className="lp-actions lp-actions--center">
-              <Link to="/" className="lp-btn">Open the demo <IconArrowRight size={16} /></Link>
+              <Link to={DASHBOARD} className="lp-btn">Open the demo <IconArrowRight size={16} /></Link>
               {/* TODO: point at the firm’s booking link */}
               <a href={BOOKING} className="lp-btn lp-btn--ghost">Book a walkthrough</a>
             </div>
@@ -329,7 +330,7 @@ export default function Landing() {
               ['Product', [['Pipeline', '#product'], ['Campaigns', '#product'], ['Calendar', '#product'], ['AI agents', '#product']]],
               ['For firms', [['Practice areas', '#practice'], ['Services', '#practice'], ['Lead sources', '#integrations'], ['Security', '#integrations']]],
               ['Company', [['How it works', '#how'], ['Integrations', '#integrations'], ['FAQ', '#faq'], ['Contact', '#cta']]],
-              ['Account', [['Sign in', '/sign-in'], ['Create account', '/sign-in?create'], ['Reset password', '/sign-in?reset'], ['Open the demo', '/']]],
+              ['Account', [['Sign in', AUTH['sign-in']], ['Create account', AUTH.create], ['Reset password', AUTH.reset], ['Open the demo', DASHBOARD]]],
             ].map(([h, links]) => (
               <div key={h as string}><h4>{h as string}</h4><ul>{(links as string[][]).map(([l, href]) => <li key={l}>{href.startsWith('/') ? <Link to={href}>{l}</Link> : <a href={href}>{l}</a>}</li>)}</ul></div>
             ))}

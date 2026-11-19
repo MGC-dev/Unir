@@ -83,7 +83,7 @@ export default function Integrations() {
         </>
       )}
       <p className="footnote" style={{ padding: '0 var(--s4)' }}>
-        Sending from your own email domain and texting number is set up in <a href="/settings" onClick={e => { e.preventDefault(); navigate('/settings') }}>Settings</a>.
+        Sending from your own email domain and texting number is set up in <a href="/dashboard/settings" onClick={e => { e.preventDefault(); navigate('/dashboard/settings') }}>Settings</a>.
       </p>
 
       {opened && (

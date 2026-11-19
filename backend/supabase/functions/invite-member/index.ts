@@ -1,5 +1,5 @@
 // A firm admin invites a teammate. The person gets Supabase's invite email, opens it, chooses a password on the
-// portal's "Choose a password" page, and is a member of the firm from then on.
+// portal's "Choose a password" page (/auth/set-password), and is a member of the firm from then on.
 // POST { email, full_name?, role?: 'admin' | 'member', firm_id? }
 import { HttpError, admin, audit, body, caller, env, handle, json } from '../_shared/core.ts'
 
@@ -18,7 +18,7 @@ handle(async req => {
   if (!userId) {
     const { data, error } = await db.auth.admin.inviteUserByEmail(email, {
       data: { full_name: b.full_name ?? '' },
-      redirectTo: `${env('SITE_URL').replace(/\/$/, '')}/sign-in?set-password`,
+      redirectTo: `${env('SITE_URL').replace(/\/$/, '')}/auth/set-password`,
     })
     if (error) throw new HttpError(400, error.message)
     userId = data.user.id

@@ -31,7 +31,7 @@ export default function Settings() {
       </div>
       <div className="group callout">
         <div className="titlerow"><h2>{live ? 'Campaigns Are Live' : 'Campaigns Unlock When Both Are Done'}</h2><InfoTip text="Each firm has its own domain, number and sender reputation. The firm is the legal sender." label="About campaign setup" /></div>
-        {live ? <button className="btn" type="button" onClick={() => navigate('/campaigns')}>Open Campaigns</button> : <span className="tag">{(emailOk ? 1 : 0) + (textOk ? 1 : 0)} of 2 Done</span>}
+        {live ? <button className="btn" type="button" onClick={() => navigate('/dashboard/campaigns')}>Open Campaigns</button> : <span className="tag">{(emailOk ? 1 : 0) + (textOk ? 1 : 0)} of 2 Done</span>}
       </div>
       <DomainSetup key={f.domain} firm={f} />
       <EmailDesign firm={f} />

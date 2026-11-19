@@ -139,16 +139,16 @@ export default function Bots() {
   const pending = !!conv?.pending
 
   // On a wide screen the most recent agent opens by itself.
-  useEffect(() => { const first = active[0] ?? drafts[0]; if (!id && !phone && first) navigate(`/agents/${first.id}`, { replace: true }) }, [id, phone, filtered.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const first = active[0] ?? drafts[0]; if (!id && !phone && first) navigate(`/dashboard/agents/${first.id}`, { replace: true }) }, [id, phone, filtered.length]) // eslint-disable-line react-hooks/exhaustive-deps
   // An agent's thread is made the first time it is opened.
   useEffect(() => { if (bot && convs && !conv && making.current !== bot.id) { making.current = bot.id; chatApi.create(bot.id).catch(() => { making.current = '' }) } }, [bot?.id, convs, conv]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (conv?.unread) chatApi.markRead(conv.id) }, [conv?.unread, conv?.id, messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }) }, [messages.length, pending, id])
 
-  const add = async () => { const b = await botsApi.create(); navigate(`/agents/${b.id}/settings`, { state: { edit: true } }) }
+  const add = async () => { const b = await botsApi.create(); navigate(`/dashboard/agents/${b.id}/settings`, { state: { edit: true } }) }
   const send = async (text: string) => { if (conv) await chatApi.send(conv.id, text) }
   const onScroll = () => { const el = thread.current; if (el) setFar(el.scrollHeight - el.scrollTop - el.clientHeight > 240) }
-  const toggleSettings = () => bot && navigate(settings ? `/agents/${bot.id}` : `/agents/${bot.id}/settings`)
+  const toggleSettings = () => bot && navigate(settings ? `/dashboard/agents/${bot.id}` : `/dashboard/agents/${bot.id}/settings`)
 
   if (!bots || !convs) return null
 
@@ -177,11 +177,11 @@ export default function Bots() {
               <p className="px-4 py-8 text-center text-[14px] text-ios-secondary">{q ? `No agents match “${q.trim()}”.` : 'No agents yet. Press + to create one.'}</p>
             ) : (
               <>
-                {active.length > 0 && <ul className="grid gap-px">{active.map(b => <AgentRow key={b.id} bot={b} conv={threadOf(b)} selected={b.id === id} onOpen={() => navigate(`/agents/${b.id}`)} />)}</ul>}
+                {active.length > 0 && <ul className="grid gap-px">{active.map(b => <AgentRow key={b.id} bot={b} conv={threadOf(b)} selected={b.id === id} onOpen={() => navigate(`/dashboard/agents/${b.id}`)} />)}</ul>}
                 {drafts.length > 0 && (
                   <>
                     <h3 className="px-4 pt-4 pb-1.5 text-[12px] font-semibold uppercase tracking-[0.04em] text-ios-secondary">Drafts</h3>
-                    <ul className="grid gap-px">{drafts.map(b => <AgentRow key={b.id} bot={b} conv={threadOf(b)} selected={b.id === id} onOpen={() => navigate(`/agents/${b.id}`)} />)}</ul>
+                    <ul className="grid gap-px">{drafts.map(b => <AgentRow key={b.id} bot={b} conv={threadOf(b)} selected={b.id === id} onOpen={() => navigate(`/dashboard/agents/${b.id}`)} />)}</ul>
                   </>
                 )}
               </>
@@ -202,7 +202,7 @@ export default function Bots() {
           ) : (
             <>
               <header className="grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center px-2">
-                <span>{phone && <button type="button" onClick={() => navigate('/agents')} className={cn('flex h-9 items-center rounded-lg pr-2 text-[15px] text-ios-accent', focusRing)}><IconChevronLeft className="size-6" stroke={2.2} aria-hidden="true" />Agents</button>}</span>
+                <span>{phone && <button type="button" onClick={() => navigate('/dashboard/agents')} className={cn('flex h-9 items-center rounded-lg pr-2 text-[15px] text-ios-accent', focusRing)}><IconChevronLeft className="size-6" stroke={2.2} aria-hidden="true" />Agents</button>}</span>
                 <span className="flex min-w-0 items-center gap-2">
                   <BotAvatar bot={bot} size={28} muted={!bot.active} />
                   <span className="grid min-w-0 leading-tight">
@@ -238,7 +238,7 @@ export default function Bots() {
                 ) : (
                   <p className="flex flex-wrap items-center justify-center gap-x-1 rounded-[20px] border border-ios-separator bg-white px-4 py-2.5 text-center text-[14px] text-ios-secondary">
                     {bot.name} is a draft.
-                    <button type="button" onClick={() => navigate(`/agents/${bot.id}/settings`)} className={cn('rounded font-medium text-ios-accent hover:underline', focusRing)}>Make it available in Chat</button>
+                    <button type="button" onClick={() => navigate(`/dashboard/agents/${bot.id}/settings`)} className={cn('rounded font-medium text-ios-accent hover:underline', focusRing)}>Make it available in Chat</button>
                   </p>
                 )}
                 <p className="mt-1.5 text-center text-[11.5px] text-ios-secondary">Answers come from this portal’s sample data. Changes in the portal wait for your approval.</p>
@@ -251,7 +251,7 @@ export default function Bots() {
       {show.inspector && bot && (
         <div className={cn('min-h-0 border-l border-ios-separator',
           phone ? '' : 'absolute inset-y-0 right-0 z-10 w-[380px] bg-ios-page shadow-[-12px_0_32px_rgba(0,0,0,0.10)] xl:static xl:w-auto xl:bg-transparent xl:shadow-none')}>
-          <AgentInspector bot={bot} isNew={isNew} onClose={() => navigate(`/agents/${bot.id}`)} onDeleted={() => navigate('/agents')} />
+          <AgentInspector bot={bot} isNew={isNew} onClose={() => navigate(`/dashboard/agents/${bot.id}`)} onDeleted={() => navigate('/dashboard/agents')} />
         </div>
       )}
     </div>

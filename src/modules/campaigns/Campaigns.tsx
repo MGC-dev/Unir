@@ -87,7 +87,7 @@ function CampaignList() {
     (type === 'all' || c.kind === type) && (channel === 'all' || c.channel === channel) && (status === 'all' || statusOf(c) === status) &&
     (!term || `${c.name} ${c.subject ?? ''} ${c.body} ${c.channel}`.toLowerCase().includes(term)))
   const rows = sortRows(filtered, view)
-  const open = (c: Campaign) => navigate(`/campaigns/${c.id}`)
+  const open = (c: Campaign) => navigate(`/dashboard/campaigns/${c.id}`)
 
   return (
     <>
@@ -108,7 +108,7 @@ function CampaignList() {
             <div><b>Some campaign messages are held</b>
               <p className="footnote">They send once {[!canEmail ? 'your email domain is verified' : null, !canText ? 'your texting number is registered' : null].filter(Boolean).join(' and ')}.</p></div>
           </div>
-          <button className="btn btn--sm" type="button" onClick={() => navigate('/settings')}>Open Settings</button>
+          <button className="btn btn--sm" type="button" onClick={() => navigate('/dashboard/settings')}>Open Settings</button>
         </div>
       )}
 

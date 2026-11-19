@@ -9,6 +9,7 @@ import { VIEWS, TABS } from './nav'
 import { useUi } from './UiContext'
 import { tourStore } from '../modules/tour/tourStore'
 import { useAuth } from './auth'
+import { AUTH } from './paths'
 
 type Kind = 'more' | 'help' | 'account' | 'team'
 
@@ -42,7 +43,7 @@ export function AccountSheet({ kind }: { kind: Kind }) {
     <Sheet title="Help and Resources" sub={live ? undefined : 'Sample data only. Nothing is sent.'} info="Each firm runs its own workspace: its own team, data, domain and number." onClose={close}>
       <ul className="group rows">
         {!live && <RowBtn icon="arrow" title="Take the Guided Tour" sub="Seven steps, from firm onboarding to reports" onClick={() => { closeAll(); tourStore.restart() }} />}
-        <RowBtn icon="gear" title="Firm Setup Guide" sub="Verify your email domain and register texting" onClick={() => go('/settings')} />
+        <RowBtn icon="gear" title="Firm Setup Guide" sub="Verify your email domain and register texting" onClick={() => go('/dashboard/settings')} />
         <RowBtn icon="messages" title="Contact Support" sub="The UNIR team replies within one business day" onClick={() => { close(); toast('Message sent to support', 'The UNIR team replies within one business day') }} />
         {live
           ? <RowBtn icon="bolt" title="Reload Data" sub="Fetch the latest from the server, including teammates’ changes" onClick={async () => { close(); await systemApi.reset() }} />
@@ -54,11 +55,11 @@ export function AccountSheet({ kind }: { kind: Kind }) {
     <Sheet title={auth.displayName} sub={auth.enabled ? [auth.user?.email !== auth.displayName ? auth.user?.email : null, firm?.name].filter(Boolean).join(' · ') : `Intake Manager, ${firm?.name ?? ''}`} onClose={close}>
       <ul className="group rows">
         <RowBtn icon="leads" title="Team and Permissions" sub="Your firm invites its own people and sets who can do what" onClick={() => openModal({ type: 'team' })} />
-        <RowBtn icon="gear" title="Firm Settings" sub="Your sending domain, texting number and workspace" onClick={() => go('/settings')} />
+        <RowBtn icon="gear" title="Firm Settings" sub="Your sending domain, texting number and workspace" onClick={() => go('/dashboard/settings')} />
         <RowBtn icon="arrow" title="Sign Out" sub={auth.enabled ? undefined : 'Demo mode: there is no account to sign out of'} onClick={async () => {
           close()
-          if (!auth.enabled) { navigate('/sign-in'); return }
-          try { await auth.signOut(); navigate('/sign-in', { replace: true }) } catch (e) { toast('Could not sign out', e instanceof Error ? e.message : undefined) }
+          if (!auth.enabled) { navigate(AUTH['sign-in']); return }
+          try { await auth.signOut(); navigate(AUTH['sign-in'], { replace: true }) } catch (e) { toast('Could not sign out', e instanceof Error ? e.message : undefined) }
         }} />
       </ul>
     </Sheet>

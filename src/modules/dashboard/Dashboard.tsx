@@ -107,25 +107,25 @@ export default function Dashboard() {
     <>
       {!(canEmail && canText) && (
         <div className="banner"><Icon name="alert" /><span><b>Sending is not set up yet.</b> Campaign messages are held until {missing}.</span>
-          <button className="btn btn--sm" type="button" onClick={() => go('/settings')}>Finish Setup</button></div>
+          <button className="btn btn--sm" type="button" onClick={() => go('/dashboard/settings')}>Finish Setup</button></div>
       )}
       <HeaderActions>
         <button type="button" className="iconbtn iconbtn--primary" aria-label="Add enquiry" title="Add enquiry" onClick={() => openModal({ type: 'intake' })}><IconPlus size={19} stroke={2.2} /></button>
       </HeaderActions>
 
       <div className="kpis">
-        <button type="button" className="kpi kpi--hero kpi--link" onClick={() => go('/leads')}><span className="kpi__label">New Enquiries, This Week</span><b className="kpi__value">{thisWeek}</b>
+        <button type="button" className="kpi kpi--hero kpi--link" onClick={() => go('/dashboard/leads')}><span className="kpi__label">New Enquiries, This Week</span><b className="kpi__value">{thisWeek}</b>
           <span className={'kpi__delta ' + (delta >= 0 ? 'is-up' : 'is-down')}><Icon name="arrow" small />{Math.abs(delta)}% vs last week</span></button>
-        <button type="button" className="kpi kpi--link" onClick={() => go('/reports')}><span className="kpi__label">Median First Response</span>
+        <button type="button" className="kpi kpi--link" onClick={() => go('/dashboard/reports')}><span className="kpi__label">Median First Response</span>
           {respD ? <><b className="kpi__value">{respD.v}<small> {respD.u}</small></b>{resp! <= 60 ? <Tag tone="green" icon="check">Under 1 hour target</Tag> : <Tag tone="orange">Over the 1 hour target</Tag>}</>
             : <><b className="kpi__value">–</b><span className="kpi__sub">No replies logged yet</span></>}</button>
-        <button type="button" className="kpi kpi--link" onClick={() => go('/reports')}><span className="kpi__label">Consultation to Signed</span><b className="kpi__value">{conv}<small>%</small></b><span className="kpi__sub">{won.length} of {reached.length} consultations</span></button>
-        <button type="button" className="kpi kpi--link" onClick={() => go('/pipeline')}><span className="kpi__label">Open Pipeline</span><b className="kpi__value">{money(open.filter(feeKnown).reduce((a, l) => a + l.value, 0))}</b><span className="kpi__sub">{open.length} open leads{overdue ? ` · ${overdue} overdue ${overdue === 1 ? 'task' : 'tasks'}` : ''}</span></button>
+        <button type="button" className="kpi kpi--link" onClick={() => go('/dashboard/reports')}><span className="kpi__label">Consultation to Signed</span><b className="kpi__value">{conv}<small>%</small></b><span className="kpi__sub">{won.length} of {reached.length} consultations</span></button>
+        <button type="button" className="kpi kpi--link" onClick={() => go('/dashboard/pipeline')}><span className="kpi__label">Open Pipeline</span><b className="kpi__value">{money(open.filter(feeKnown).reduce((a, l) => a + l.value, 0))}</b><span className="kpi__sub">{open.length} open leads{overdue ? ` · ${overdue} overdue ${overdue === 1 ? 'task' : 'tasks'}` : ''}</span></button>
       </div>
 
       <div className="dash dash--a">
         <section className="group panel panel--chart">
-          <div className="panel__head"><div className="titlerow"><h2>Enquiries</h2><InfoTip text="New enquiries over the last 14 days, from all sources." label="About Enquiries" /></div><button className="btn btn--plain btn--sm" type="button" onClick={() => go('/reports')}>Reports</button></div>
+          <div className="panel__head"><div className="titlerow"><h2>Enquiries</h2><InfoTip text="New enquiries over the last 14 days, from all sources." label="About Enquiries" /></div><button className="btn btn--plain btn--sm" type="button" onClick={() => go('/dashboard/reports')}>Reports</button></div>
           <div className="chart">
             <div className="chart__y">{ticks.map((t, i) => <span key={i}>{t}</span>)}</div>
             <div className="chart__plot">
@@ -145,9 +145,9 @@ export default function Dashboard() {
           </div>
         </section>
         <section className="group panel">
-          <div className="panel__head"><div className="titlerow"><h2>Pipeline</h2><InfoTip text="How many leads have reached each stage." label="About Pipeline" /></div><button className="btn btn--plain btn--sm" type="button" onClick={() => go('/pipeline')}>Board</button></div>
+          <div className="panel__head"><div className="titlerow"><h2>Pipeline</h2><InfoTip text="How many leads have reached each stage." label="About Pipeline" /></div><button className="btn btn--plain btn--sm" type="button" onClick={() => go('/dashboard/pipeline')}>Board</button></div>
           <ol className="funnel">
-            {funnelStages.map((s, i) => <li key={s.id} className="is-link" onClick={() => go('/pipeline')} title={`${counts[i]} reached ${s.label}`}><span className="funnel__label">{s.label}</span><span className="funnel__track"><span style={{ width: counts[i] / fmax * 100 + '%' }} /></span><b>{counts[i]}</b></li>)}
+            {funnelStages.map((s, i) => <li key={s.id} className="is-link" onClick={() => go('/dashboard/pipeline')} title={`${counts[i]} reached ${s.label}`}><span className="funnel__label">{s.label}</span><span className="funnel__track"><span style={{ width: counts[i] / fmax * 100 + '%' }} /></span><b>{counts[i]}</b></li>)}
             <li className="is-lost"><span className="funnel__label">Lost</span><span className="funnel__track"><span style={{ width: lost / fmax * 100 + '%' }} /></span><b>{lost}</b></li>
           </ol>
         </section>
@@ -156,7 +156,7 @@ export default function Dashboard() {
       <div className="dash dash--b">
         <section className="group panel">
           <div className="panel__head"><div><h2>Needs Attention</h2><p className="footnote">{[attention.length ? `${attention.length} follow-up${attention.length === 1 ? '' : 's'} due today` : 'Nothing due today', cold.length ? `${cold.length} going cold` : ''].filter(Boolean).join(' · ')}</p></div>
-            <button className="btn btn--plain btn--sm" type="button" onClick={() => go('/tasks')}>Tasks</button></div>
+            <button className="btn btn--plain btn--sm" type="button" onClick={() => go('/dashboard/tasks')}>Tasks</button></div>
           {attention.length > 0 && <ul className="rows">{attention.map(a => <TaskRow key={a.id} a={a} lead={leads.find(l => l.id === a.leadId)} />)}</ul>}
           {cold.length > 0 && (
             <>
@@ -176,7 +176,7 @@ export default function Dashboard() {
         </section>
         <section className="group panel">
           <div className="panel__head"><div><h2>{todays.length ? 'Today' : 'Coming Up'}</h2><p className="footnote">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p></div>
-            <button className="btn btn--plain btn--sm" type="button" onClick={() => go('/calendar')}>Calendar</button></div>
+            <button className="btn btn--plain btn--sm" type="button" onClick={() => go('/dashboard/calendar')}>Calendar</button></div>
           {nextUp.length ? (
             <ul className="schedule">{nextUp.map((x, i) => (
               <li key={i} className={x.firm ? 'is-firm' : undefined}>
@@ -189,7 +189,7 @@ export default function Dashboard() {
 
       <div className="dash dash--c">
         <section className="group panel">
-          <div className="panel__head"><div className="titlerow"><h2>Lead Sources</h2><InfoTip text="Where leads come from, and the share of them that signed." label="About Lead Sources" /></div><button className="btn btn--plain btn--sm" type="button" onClick={() => go('/reports')}>Reports</button></div>
+          <div className="panel__head"><div className="titlerow"><h2>Lead Sources</h2><InfoTip text="Where leads come from, and the share of them that signed." label="About Lead Sources" /></div><button className="btn btn--plain btn--sm" type="button" onClick={() => go('/dashboard/reports')}>Reports</button></div>
           <ul className="hbars">{src.map(x => <li key={x.k}><span className="hbars__label">{SOURCES[x.k]}</span><span className="hbars__track"><span style={{ width: x.n / smax * 100 + '%' }} /></span><b>{x.n}</b><span className="hbars__sub" title={`${x.w} of ${x.n} signed`}>{x.w ? `${Math.round(x.w / x.n * 100)}% signed` : '–'}</span></li>)}</ul>
         </section>
         <section className="group panel docact">
@@ -204,7 +204,7 @@ export default function Dashboard() {
           ) : <div className="empty"><Icon name="doc" /><p>Documents you send for signature show up here.</p></div>}
         </section>
         <section className="group panel">
-          <div className="panel__head"><div><h2>Campaigns</h2><p className="footnote">{on} of {autos.length} automatic campaigns on</p></div><button className="btn btn--plain btn--sm" type="button" onClick={() => go('/campaigns')}>Campaigns</button></div>
+          <div className="panel__head"><div><h2>Campaigns</h2><p className="footnote">{on} of {autos.length} automatic campaigns on</p></div><button className="btn btn--plain btn--sm" type="button" onClick={() => go('/dashboard/campaigns')}>Campaigns</button></div>
           {lastSend && ls && (
             <div className="campmini"><span className="caption">Last one-off send</span><b>{lastSend.name}</b><span className="footnote">{when(lastSend.sentAt!)}</span>
               <div className="campmini__stats"><span><b>{ls.sent}</b>Delivered</span><span><b>{ls.email ? Math.round(ls.opened / ls.email * 100) + '%' : '–'}</b>Opened</span><span><b>{ls.replied}</b>Replied</span></div></div>

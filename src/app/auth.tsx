@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import type { EmailOtpType, Session, User } from '@supabase/supabase-js'
 import { appUrl, setRememberMe, supabase } from '../lib/supabase'
 import { remote, start as startRemote, stop as stopRemote } from '../api/remote'
+import { AUTH, DASHBOARD } from './paths'
 
 export interface Auth {
   /** False in demo mode (no Supabase keys): nobody has to sign in. */
@@ -78,15 +79,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       async signUp(name, email, password) {
         setRememberMe(true)
-        const { data, error } = await need().auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim() }, emailRedirectTo: appUrl('/') } }); fail(error)
+        const { data, error } = await need().auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim() }, emailRedirectTo: appUrl(DASHBOARD) } }); fail(error)
         return { confirm: !data.session }
       },
       async signInWithGoogle() {
         setRememberMe(true)
-        const { error } = await need().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: appUrl('/') } }); fail(error)
+        const { error } = await need().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: appUrl(DASHBOARD) } }); fail(error)
       },
       async sendReset(email) {
-        const { error } = await need().auth.resetPasswordForEmail(email.trim(), { redirectTo: appUrl('/sign-in?set-password') }); fail(error)
+        const { error } = await need().auth.resetPasswordForEmail(email.trim(), { redirectTo: appUrl(AUTH['set-password']) }); fail(error)
       },
       async setPassword(password) {
         const { error } = await need().auth.updateUser({ password }); fail(error)
@@ -111,8 +112,8 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation()
   if (!enabled) return <>{children}</>
   if (loading) return null
-  if (recovering) return <Navigate to="/sign-in?set-password" replace />
-  if (!session) return <Navigate to="/sign-in" replace state={{ from: location.pathname + location.search }} />
+  if (recovering) return <Navigate to={AUTH['set-password']} replace />
+  if (!session) return <Navigate to={AUTH['sign-in']} replace state={{ from: location.pathname + location.search }} />
   return <FirmGate>{children}</FirmGate>
 }
 

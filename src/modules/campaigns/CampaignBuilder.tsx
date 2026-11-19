@@ -70,7 +70,7 @@ export function CampaignBuilder({ kind: initialKind, folderId: initialFolder }: 
   const save = async (draft: boolean) => {
     if (!name.trim() || !body.trim()) return
     const c = await campaignsApi.create({ kind, metric: survey ? metric : undefined, name: name.trim(), channel, subject: isEmail ? subject : '', body, audience, trigger, draft, folderId: folder === 'none' ? undefined : folder, tags: tags.filter(g => (body + subject).includes(`{${g.id}}`)) })
-    close(); navigate(`/campaigns/${c.id}`)
+    close(); navigate(`/dashboard/campaigns/${c.id}`)
   }
 
   const caret = useRef<{ s: number; e: number } | null>(null)

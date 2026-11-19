@@ -183,7 +183,7 @@ export default function Chat() {
     const msg = value.trim()
     if (!msg || conv?.pending) return
     let cid = conv?.id
-    if (!cid) { const c = await chatApi.create(null); cid = c.id; navigate(`/chat/${cid}`, { replace: true }) }
+    if (!cid) { const c = await chatApi.create(null); cid = c.id; navigate(`/dashboard/chat/${cid}`, { replace: true }) }
     const thinking = options?.think ?? think
     setLive({ convId: cid, at: Date.now(), think: thinking, phase: thinking ? 'thinking' : 'answering', steps: thinking ? [{ id: 'read', text: 'Reading your question…', status: 'active' }] : [], shown: '', elapsed: 0 })
     await chatApi.send(cid, msg)
@@ -192,9 +192,9 @@ export default function Chat() {
     window.clearInterval(stream.current)
     setLive(l => l && { ...l, phase: 'done', shown: reply?.text ?? l.shown })
   }
-  const newChat = () => { navigate('/chat'); setList(false) }
-  const open = (cid: string) => { navigate(`/chat/${cid}`); setList(false) }
-  const remove = async (cid: string) => { await chatApi.remove(cid); if (cid === id) navigate('/chat') }
+  const newChat = () => { navigate('/dashboard/chat'); setList(false) }
+  const open = (cid: string) => { navigate(`/dashboard/chat/${cid}`); setList(false) }
+  const remove = async (cid: string) => { await chatApi.remove(cid); if (cid === id) navigate('/dashboard/chat') }
 
   // What the conversation view shows for the latest turn.
   const isLive = !!live && !!conv && live.convId === conv.id && (!live.replyId || live.replyId === reply?.id)

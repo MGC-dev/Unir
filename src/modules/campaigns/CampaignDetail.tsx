@@ -57,7 +57,7 @@ export default function CampaignDetail() {
   if (!camps || !firm) return null
   if (!c) return (
     <div className="docv">
-      <button type="button" className="docv__back" onClick={() => navigate('/campaigns')}><IconArrowLeft size={16} stroke={2.2} />Campaigns</button>
+      <button type="button" className="docv__back" onClick={() => navigate('/dashboard/campaigns')}><IconArrowLeft size={16} stroke={2.2} />Campaigns</button>
       <div className="group empty"><Icon name="campaigns" /><p>This campaign no longer exists.</p></div>
     </div>
   )
@@ -87,12 +87,12 @@ export default function CampaignDetail() {
   const remove = async () => {
     if (!confirm(`Delete “${c.name}”? Its results are removed too.`)) return
     await campaignsApi.remove(c.id)
-    navigate('/campaigns')
+    navigate('/dashboard/campaigns')
   }
 
   return (
     <div className="docv">
-      <button type="button" className="docv__back" onClick={() => navigate('/campaigns')}><IconArrowLeft size={16} stroke={2.2} />Campaigns</button>
+      <button type="button" className="docv__back" onClick={() => navigate('/dashboard/campaigns')}><IconArrowLeft size={16} stroke={2.2} />Campaigns</button>
 
       <section className="docv__head">
         <span className="docv__icon" aria-hidden="true"><Icon name="campaigns" /></span>

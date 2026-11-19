@@ -27,7 +27,7 @@ export function LeadProfile({ lead: l, startEditing = false }: { lead: Lead; sta
   const [editing, setEditing] = useState(startEditing)
 
   const openTicket = () => {
-    navigate('/pipeline')
+    navigate('/dashboard/pipeline')
     // the route change closes open panels, so open the ticket once it has settled
     setTimeout(() => openLead(l.id), 120)
   }

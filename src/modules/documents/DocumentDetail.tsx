@@ -34,7 +34,7 @@ export default function DocumentDetail() {
   if (!docs) return null
   if (!doc) return (
     <div className="docv">
-      <button type="button" className="docv__back" onClick={() => navigate('/documents')}><IconArrowLeft size={16} stroke={2.2} />Documents</button>
+      <button type="button" className="docv__back" onClick={() => navigate('/dashboard/documents')}><IconArrowLeft size={16} stroke={2.2} />Documents</button>
       <div className="group empty"><Icon name="folder" /><p>This document no longer exists.</p></div>
     </div>
   )
@@ -55,7 +55,7 @@ export default function DocumentDetail() {
   const remove = async () => {
     if (!confirm(`Delete “${doc.name}”? This cannot be undone.`)) return
     await documentsApi.remove(doc.id)
-    navigate('/documents')
+    navigate('/dashboard/documents')
   }
   const onFile = (f?: File | null) => {
     if (!f) return
@@ -70,7 +70,7 @@ export default function DocumentDetail() {
 
   return (
     <div className="docv">
-      <button type="button" className="docv__back" onClick={() => navigate('/documents')}><IconArrowLeft size={16} stroke={2.2} />Documents</button>
+      <button type="button" className="docv__back" onClick={() => navigate('/dashboard/documents')}><IconArrowLeft size={16} stroke={2.2} />Documents</button>
 
       <section className="docv__head">
         <span className="docv__icon" aria-hidden="true"><Icon name="doc" /></span>

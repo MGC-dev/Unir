@@ -21,7 +21,7 @@ const RAIL = 60
 function useViewId() {
   const { pathname } = useLocation()
   // nested pages (e.g. /documents/abc) belong to their module
-  return VIEWS.find(v => !!matchPath({ path: v.path, end: v.path === '/' }, pathname))?.id ?? 'dashboard'
+  return VIEWS.find(v => !!matchPath({ path: v.path, end: v.path === '/dashboard' }, pathname))?.id ?? 'dashboard'
 }
 
 /** Sidebar link that is a real anchor (open-in-new-tab works) but navigates client-side. */
@@ -29,7 +29,7 @@ function NavItem({ to, label, icon, badge, onClick }: { to?: string; label: stri
   const href = useHref(to ?? '/')
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const active = !!to && !!matchPath({ path: to, end: to === '/' }, pathname)
+  const active = !!to && !!matchPath({ path: to, end: to === '/dashboard' }, pathname)
   return (
     <SidebarItem
       href={to ? href : undefined}
@@ -120,7 +120,7 @@ function Toolbar() {
     <>
       <nav className="topnav" aria-label="Portal">
         <GlobalSearch />
-        <button className="btn btn--icon only-phone-inline" type="button" onClick={() => navigate('/settings')} aria-label="Settings"><Icon name="gear" /></button>
+        <button className="btn btn--icon only-phone-inline" type="button" onClick={() => navigate('/dashboard/settings')} aria-label="Settings"><Icon name="gear" /></button>
       </nav>
       <header className="toolbar">
         <div className="toolbar__title">

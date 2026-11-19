@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { useAuth } from '../../app/auth'
 import { signupAllowed } from '../../lib/supabase'
@@ -7,6 +7,7 @@ import { IconBellRinging, IconCalendarEvent, IconSignature } from '@tabler/icons
 import '@fontsource-variable/geist'
 import { SignInPage, type SignInMode } from '@/components/ui/sign-in'
 import { HalftoneU } from '../../shared/HalftoneU'
+import { AUTH, DASHBOARD, HOME, authMode } from '../../app/paths'
 
 /** White page; buttons and links in the sidebar's navy. */
 const SURFACE = { '--background': '#ffffff', '--primary': '#0f2347', '--ring': 'rgba(15,35,71,.35)' } as CSSProperties
@@ -19,7 +20,7 @@ const COPY: Record<SignInMode, { title: string; description: string }> = {
 }
 
 const Logo = () => (
-  <Link to="/welcome" className="inline-flex items-center gap-2.5 text-[15px] font-bold tracking-[.14em] text-[#0f2347]">
+  <Link to={HOME} className="inline-flex items-center gap-2.5 text-[15px] font-bold tracking-[.14em] text-[#0f2347]">
     <svg viewBox="0 0 64 64" width="28" height="28" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0f2347" /><path d="M20 16v21a12 12 0 0 0 24 0V16" fill="none" stroke="#fff" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" /><rect x="20" y="50" width="24" height="3" rx="1.5" fill="#d4a954" /></svg>
     UNIR
   </Link>
@@ -37,39 +38,42 @@ const Aside = () => (
 )
 
 /**
- * Sign in, create an account, reset a password, or choose a new one after a reset or invite link (`?set-password`).
+ * Sign in, create an account, reset a password, or choose a new one after a reset or invite link: /auth/sign-in, /auth/sign-up,
+ * /auth/reset-password and /auth/set-password.
  * With Supabase keys in .env.local these use real accounts; without them (demo mode) signing in opens the sample portal.
  * Accounts are by invite only unless VITE_ALLOW_SIGNUP is "true".
  */
 export default function SignIn() {
   const navigate = useNavigate()
   const { search, state } = useLocation()
+  const { page } = useParams()
   const auth = useAuth()
-  const fromUrl: SignInMode = search.includes('set-password') ? 'set-password' : search.includes('create') ? 'create' : search.includes('reset') ? 'reset' : 'sign-in'
+  const fromUrl: SignInMode = authMode(page) ?? 'sign-in'
   const [mode, setMode] = useState<SignInMode>(fromUrl)
   const [message, setMessage] = useState<{ text: string; tone: 'info' | 'error' }>()
   const [busy, setBusy] = useState(false)
   useEffect(() => { setMode(fromUrl); setMessage(undefined) }, [fromUrl])
   useEffect(() => { document.title = `${{ create: 'Create account', reset: 'Reset password', 'set-password': 'Choose a password', 'sign-in': 'Sign in' }[mode]} · UNIR`; return () => { document.title = 'UNIR' } }, [mode])
 
-  // Invite and reset emails link here with ?set-password&token_hash=…&type=invite|recovery: sign in with the token first.
+  // Invite and reset emails link to /auth/set-password?token_hash=…&type=invite|recovery: sign in with the token first.
   const [linking, setLinking] = useState(() => new URLSearchParams(search).has('token_hash'))
   useEffect(() => {
     const q = new URLSearchParams(search), hash = q.get('token_hash'), type = q.get('type') as EmailOtpType | null
     if (!hash || !type || !auth.enabled) { setLinking(false); return }
     auth.verifyLink(hash, type)
       .catch(() => setMessage({ text: 'This link has expired or was already used. Ask for a new one.', tone: 'error' }))
-      .finally(() => { setLinking(false); navigate('/sign-in?set-password', { replace: true }) })
+      .finally(() => { setLinking(false); navigate(AUTH['set-password'], { replace: true }) })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const go = (m: SignInMode) => navigate(m === 'sign-in' ? '/sign-in' : `/sign-in?${m}`)
-  const back = (state as { from?: string } | null)?.from || '/'
+  const go = (m: SignInMode) => navigate(AUTH[m])
+  const back = (state as { from?: string } | null)?.from || DASHBOARD
   const canCreate = !auth.enabled || signupAllowed
 
   // Already signed in: go to the portal (except while choosing a new password).
   if (auth.enabled && !auth.loading && auth.session && mode !== 'set-password') return <Navigate to={back} replace />
   if (auth.enabled && (auth.loading || linking)) return null
-  if (mode === 'create' && !canCreate) return <Navigate to="/sign-in" replace />
+  if (!authMode(page)) return <Navigate to={AUTH['sign-in']} replace />
+  if (mode === 'create' && !canCreate) return <Navigate to={AUTH['sign-in']} replace />
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true); setMessage(undefined)
@@ -81,7 +85,7 @@ export default function SignIn() {
     const f = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>
     if (!auth.enabled) { // demo mode: no real accounts
       if (mode === 'reset') setMessage({ text: 'If that email has an account, a reset link is on its way.', tone: 'info' })
-      else navigate('/')
+      else navigate(DASHBOARD)
       return
     }
     run(async () => {
@@ -90,11 +94,11 @@ export default function SignIn() {
       else if (mode === 'set-password') {
         if (!auth.session) throw new Error('This link has expired or was already used. Ask for a new one.')
         if (f.password !== f.confirm) throw new Error('The two passwords don’t match.')
-        await auth.setPassword(f.password); navigate('/', { replace: true })
+        await auth.setPassword(f.password); navigate(DASHBOARD, { replace: true })
       } else {
         const { confirm } = await auth.signUp(f.name, f.email, f.password)
         if (confirm) setMessage({ text: 'Check your email to confirm your account, then sign in.', tone: 'info' })
-        else navigate('/', { replace: true })
+        else navigate(DASHBOARD, { replace: true })
       }
     })
   }
@@ -118,7 +122,7 @@ export default function SignIn() {
           { icon: <IconSignature size={20} />, title: 'Engagement letter signed', text: 'Moved to Signed on the pipeline' },
         ]}
         onSignIn={submit}
-        onGoogleSignIn={() => (auth.enabled ? run(auth.signInWithGoogle) : navigate('/'))}
+        onGoogleSignIn={() => (auth.enabled ? run(auth.signInWithGoogle) : navigate(DASHBOARD))}
         onResetPassword={() => go('reset')}
         onCreateAccount={() => go('create')}
         onBackToSignIn={() => go('sign-in')}

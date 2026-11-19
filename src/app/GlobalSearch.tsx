@@ -45,10 +45,10 @@ export function GlobalSearch() {
       group: h.group, title: h.title, subtitle: h.subtitle,
       run: () => {
         if (h.target.type === 'lead') openLead(h.target.id)
-        else if (h.target.type === 'tasks') navigate('/tasks')
-        else if (h.target.type === 'document') navigate(`/documents/${h.target.id}`)
-        else if (h.target.type === 'service') { navigate('/services'); setTimeout(() => openService(h.target.id), 120) } // after the route change, which closes open panels
-        else navigate(`/campaigns/${h.target.id}`)
+        else if (h.target.type === 'tasks') navigate('/dashboard/tasks')
+        else if (h.target.type === 'document') navigate(`/dashboard/documents/${h.target.id}`)
+        else if (h.target.type === 'service') { navigate('/dashboard/services'); setTimeout(() => openService(h.target.id), 120) } // after the route change, which closes open panels
+        else navigate(`/dashboard/campaigns/${h.target.id}`)
       },
     }))
     return [...pages, ...found]
