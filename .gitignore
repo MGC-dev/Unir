@@ -5,3 +5,6 @@ node_modules
 backend/supabase/functions/.env
 backend/supabase/.temp
 backend/supabase/.branches
+
+# Build output (Cloudflare Pages builds it from the repo)
+dist

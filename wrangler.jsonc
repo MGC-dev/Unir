@@ -1,0 +1,10 @@
+// Cloudflare Workers static-assets deploy: `npm run build && npx wrangler deploy`
+{
+  "name": "unir",
+  "compatibility_date": "2026-11-18",
+  "assets": {
+    "directory": "./dist",
+    // Deep links (e.g. /pipeline) fall back to the app shell.
+    "not_found_handling": "single-page-application"
+  }
+}
