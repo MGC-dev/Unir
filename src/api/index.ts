@@ -5,7 +5,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { config as seedConfig, enquiryPool, team as seedTeam } from './mockData'
 import * as srv from './mockServer'
 import { store, live } from './mockServer'
-import { addDomain, agentSetup, botRuns, gmailConnect, gmailDisconnect, checkDomain, inviteMember, isAdmin, liveChat, reload as reloadLive, remote, runAgent, uploadLogo } from './remote'
+import { addDomain, agentSetup, botRuns, googleCalendarEvents, googleCalendarStatus, googleConnect, googleDisconnect, type GoogleCalendarEvent, type GoogleCalendarState, checkDomain, inviteMember, isAdmin, liveChat, reload as reloadLive, remote, runAgent, uploadLogo } from './remote'
 
 export { live }
 import { toast } from '../shared/toast' // mock-only: a real backend would not toast, the UI would
@@ -235,12 +235,24 @@ export const firmApi = {
     : seedTeam),
 }
 
+export type { GoogleCalendarEvent, GoogleCalendarState } from './remote'
+
+/** Each person's own Google Calendar, shown read-only in Calendar. Live portal only. */
+export const googleCalendarApi = {
+  available: () => live,
+  status: (): Promise<GoogleCalendarState> => (live ? googleCalendarStatus() : Promise.resolve({ connected: false })),
+  events: (from: Date, to: Date): Promise<GoogleCalendarState & { events?: GoogleCalendarEvent[] }> => (live ? googleCalendarEvents(from, to) : Promise.resolve({ connected: false, events: [] })),
+  connect: () => (live ? googleConnect('calendar') : Promise.resolve(toast('Google Calendar connects in the live portal', 'Sample mode has no Google account'))),
+  disconnect: () => (live ? googleDisconnect('calendar') : Promise.resolve()),
+}
+
 export const integrationsApi = {
   list: (): Promise<Integration[]> => reply(store.get().integrations),
   toggle(id: string) {
     const x = store.get().integrations.find(i => i.id === id)
     // Gmail connects for real through Google sign-in; the others are switches for now.
-    if (live && x && id === 'gmail') return (x.on ? gmailDisconnect() : gmailConnect()).catch(e => toast(x.on ? 'Couldn’t disconnect Gmail' : 'Couldn’t connect Gmail', e instanceof Error ? e.message : undefined))
+    if (live && x && id === 'gcal') return (x.on ? googleCalendarApi.disconnect().then(reloadLive) : googleCalendarApi.connect()).catch(e => toast(x.on ? 'Couldn’t disconnect Google Calendar' : 'Couldn’t connect Google Calendar', e instanceof Error ? e.message : undefined))
+    if (live && x && id === 'gmail') return (x.on ? googleDisconnect('gmail') : googleConnect('gmail')).catch(e => toast(x.on ? 'Couldn’t disconnect Gmail' : 'Couldn’t connect Gmail', e instanceof Error ? e.message : undefined))
     if (x) { x.on = !x.on; toast(`${x.name} ${x.on ? 'connected' : 'disconnected'}`, x.on ? 'Sample mode, no account is linked' : undefined) }
     return done()
   },

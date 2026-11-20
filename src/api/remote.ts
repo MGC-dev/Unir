@@ -66,6 +66,7 @@ async function memberStatuses(fid: string): Promise<Record<string, Any>> {
 
 async function fetchAll(): Promise<Tables> {
   const fid = remote.firmId
+  const gcal: GoogleCalendarState = await googleCalendarStatus().catch(() => ({ connected: false }))
   const [firms, members, statuses] = await Promise.all([all('firms', 'created_at', true, ['id', fid]), all('firm_members'), memberStatuses(fid)])
   remote.members = members.map(m => {
     const s = statuses[m.user_id]
@@ -142,7 +143,12 @@ async function fetchAll(): Promise<Tables> {
       id: r.id, name: r.name, channel: r.channel, subject: r.subject ?? undefined, body: r.body, tags: r.tags?.length ? r.tags : undefined,
       createdAt: ms(r.created_at)!, updatedAt: ms(r.updated_at)!, updatedBy: nameOf(r.updated_by),
     })),
-    integrations: seed.integrations().map(i => { const r = integ.find(x => x.provider === i.id); return { ...i, on: r?.enabled ?? false, account: r?.enabled ? r?.settings?.email || undefined : undefined } }),
+    integrations: seed.integrations().map(i => {
+      // Google Calendar is each person's own: connected when the signed-in person connected theirs.
+      if (i.id === 'gcal') return { ...i, on: gcal.connected, account: gcal.email, desc: 'Your own Google Calendar events show in Calendar, next to the portal’s. Each person connects their own.' }
+      const r = integ.find(x => x.provider === i.id)
+      return { ...i, on: r?.enabled ?? false, account: r?.enabled ? r?.settings?.email || undefined : undefined }
+    }),
     bots: bots.map((r): Bot => ({
       id: r.id, name: r.name, description: r.description, instructions: r.instructions, model: r.model, tools: r.tools, actions: r.actions, external: r.external,
       active: r.active, runs: r.runs, createdAt: ms(r.created_at)!, updatedAt: ms(r.updated_at)!, updatedBy: nameOf(r.updated_by),
@@ -386,21 +392,31 @@ export async function checkDomain(): Promise<string> {
   return r.status
 }
 
-/* ---------- Gmail (Google OAuth) ---------- */
+/* ---------- Google: Gmail (the firm's inbox) and Calendar (each person's own) ---------- */
 
-/** Sends the browser to Google's consent screen; Google comes back to Integrations with ?gmail=connected. */
-export async function gmailConnect() {
+/** Sends the browser to Google's consent screen; Google comes back to Integrations with ?gmail= or ?gcal=. */
+export async function googleConnect(kind: 'gmail' | 'calendar') {
   await flush()
-  const { url } = await invoke<{ url: string }>('google-oauth', { action: 'start' })
+  const { url } = await invoke<{ url: string }>('google-oauth', { action: 'start', kind })
   window.location.assign(url)
 }
 
-/** Revokes the firm's Gmail access and switches the integration off. */
-export async function gmailDisconnect() {
-  await invoke('google-oauth', { action: 'disconnect' })
-  await reload()
-  toast('Gmail disconnected')
+/** Revokes the access Google gave and forgets it. */
+export async function googleDisconnect(kind: 'gmail' | 'calendar') {
+  await invoke('google-oauth', { action: 'disconnect', kind })
+  if (kind === 'gmail') await reload()
+  toast(kind === 'gmail' ? 'Gmail disconnected' : 'Google Calendar disconnected')
 }
+
+export interface GoogleCalendarState { connected: boolean; email?: string; reconnect?: boolean }
+export interface GoogleCalendarEvent { id: string; title: string; description: string; location: string; link: string; start: string; end: string; allDay: boolean }
+
+/** Whether the signed-in person has connected their Google Calendar. */
+export const googleCalendarStatus = () => invoke<GoogleCalendarState>('google-oauth', { action: 'calendar-status' })
+
+/** The person's Google Calendar events between two dates (read-only). */
+export const googleCalendarEvents = (from: Date, to: Date) =>
+  invoke<GoogleCalendarState & { events?: GoogleCalendarEvent[] }>('google-oauth', { action: 'calendar-events', from: from.toISOString(), to: to.toISOString() })
 
 /* ---------- agents running on their own ---------- */
 

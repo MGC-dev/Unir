@@ -42,12 +42,13 @@ export default function Integrations() {
   // Back from Google's consent screen: say how it went, then tidy the address.
   const [params, setParams] = useSearchParams()
   useEffect(() => {
-    const g = params.get('gmail')
-    if (!g) return
+    const kind = params.has('gcal') ? 'gcal' : params.has('gmail') ? 'gmail' : null
+    if (!kind) return
+    const g = params.get(kind), name = kind === 'gcal' ? 'Google Calendar' : 'Gmail'
     const detail = params.get('detail') ?? undefined
-    if (g === 'connected') toast('Gmail connected', detail)
-    else if (g === 'cancelled') toast('Gmail not connected', 'Google sign-in was cancelled')
-    else toast('Couldn’t connect Gmail', detail)
+    if (g === 'connected') toast(`${name} connected`, kind === 'gcal' ? `${detail ?? 'Your'} events now show in Calendar` : detail)
+    else if (g === 'cancelled') toast(`${name} not connected`, 'Google sign-in was cancelled')
+    else toast(`Couldn’t connect ${name}`, detail)
     setParams({}, { replace: true })
   }, [params, setParams])
 
