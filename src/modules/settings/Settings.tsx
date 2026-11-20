@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { firmApi, live, useQuery } from '../../api'
+import { firmApi, useQuery } from '../../api'
 import { Tag } from '../../shared/ui'
 import { InfoTip } from '../../shared/InfoTip'
 import { EmailDesign } from './EmailDesign'
@@ -9,8 +9,7 @@ export default function Settings() {
   const f = useQuery(() => firmApi.get())
   const navigate = useNavigate()
   if (!f) return null
-  const emailOk = f.domainStatus === 'verified', textOk = f.textStatus === 'registered'
-  const live = emailOk && textOk
+  const emailOk = f.domainStatus === 'verified'
   return (
     <>
       <div className="grid3">
@@ -21,17 +20,14 @@ export default function Settings() {
           <p className="secondary">{emailOk ? <>Emails send from intake@{f.domain}.</> : f.domain ? <>Add the DNS records for {f.domain} shown below. It’s usually done within an hour.</> : 'Add your firm’s domain below, then the DNS records it shows.'}</p>
         </article>
         <article className="group setup">
-          {textOk ? <Tag tone="green" icon="check">Registered</Tag> : f.textStatus === 'review' ? <Tag tone="orange" icon="bolt">Carrier Review</Tag> : <Tag>Not Registered</Tag>}
-          <h3>Register Texting</h3><p className="secondary">Your firm registers its brand and number with US carriers. This takes days to weeks.</p>
-          <ol><li>Business details and EIN</li><li>Sample messages and opt-out wording</li><li>Number {f.number}</li></ol>
-          {f.textStatus === 'unregistered' && <button className="btn btn--prominent" type="button" onClick={() => firmApi.submitTexting()}>Submit Registration</button>}
-          {f.textStatus === 'review' && <><p className="footnote">Submitted. Carriers usually reply in days to weeks.</p>{!live && <button className="btn" type="button" onClick={() => firmApi.approveTexting()}>Approve Now (Demo)</button>}</>}
-          {textOk && <p className="footnote">Texts send from {f.number}.</p>}
+          <Tag tone="orange" icon="bolt">Coming Soon</Tag>
+          <h3>Texting (SMS)</h3>
+          <p className="secondary">Texting leads from your firm’s own number is rolling out soon. We’ll let you know when it’s ready to set up.</p>
         </article>
       </div>
       <div className="group callout">
-        <div className="titlerow"><h2>{live ? 'Campaigns Are Live' : 'Campaigns Unlock When Both Are Done'}</h2><InfoTip text="Each firm has its own domain, number and sender reputation. The firm is the legal sender." label="About campaign setup" /></div>
-        {live ? <button className="btn" type="button" onClick={() => navigate('/dashboard/campaigns')}>Open Campaigns</button> : <span className="tag">{(emailOk ? 1 : 0) + (textOk ? 1 : 0)} of 2 Done</span>}
+        <div className="titlerow"><h2>{emailOk ? 'Email Campaigns Are Live' : 'Email Campaigns Unlock Once Your Domain Is Verified'}</h2><InfoTip text="Each firm has its own domain and sender reputation. The firm is the legal sender. Text campaigns arrive with texting." label="About campaign setup" /></div>
+        {emailOk ? <button className="btn" type="button" onClick={() => navigate('/dashboard/campaigns')}>Open Campaigns</button> : <span className="tag">Verify your domain below</span>}
       </div>
       <DomainSetup key={f.domain} firm={f} />
       <EmailDesign firm={f} />

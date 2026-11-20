@@ -59,6 +59,7 @@ export const integrations = (): Integration[] => [
   { id: 'web', name: 'Website Form', icon: 'globe', on: true, desc: 'Enquiries from your website arrive as leads and get the instant reply.' },
   { id: 'ads', name: 'Google Ads', icon: 'bolt', on: true, desc: 'Lead form and call ads come in tagged with the campaign they came from.' },
   { id: 'gcal', name: 'Google Calendar', icon: 'calendar', on: false, desc: 'Consultations and follow-ups appear on each attorney’s calendar.' },
+  { id: 'gmail', name: 'Gmail', icon: 'mail', on: false, desc: 'Connect your firm’s Google Workspace inbox so email threads land on the lead’s timeline.' },
   { id: 'outlook', name: 'Microsoft Outlook', icon: 'mail', on: false, desc: 'Sync calendars and keep email threads on the lead’s timeline.' },
   { id: 'calls', name: 'Call Tracking', icon: 'phone', on: false, desc: 'Tracked calls become leads, with the number and source attached.' },
 ]

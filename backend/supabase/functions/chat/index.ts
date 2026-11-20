@@ -1,5 +1,5 @@
-// Chat and Agents: answers a message with Claude, using the firm's own data, and proposes changes for a person to
-// approve (approval is handled by chat-action). With bot_id it answers as that agent: its instructions, model, and
+// Chat and Agents: answers a message with Claude, using the firm's own data. The general Chat only reads; agents can
+// propose changes for a person to approve (approval is handled by chat-action). With bot_id it answers as that agent: its instructions, model, and
 // only the tools and actions switched on for it. Every message, the model used and its token counts are stored, and
 // each exchange is written to the audit log.
 // POST { message, conversation_id?, bot_id?, firm_id? }
@@ -69,7 +69,8 @@ handle(async req => {
   const bot = conv!.bot_id ? (await me.db.from('bots').select('*').eq('id', conv!.bot_id).single()).data : null
   if (conv!.bot_id && (!bot || !bot.active)) throw new HttpError(409, 'This agent is switched off')
   const tools: string[] = bot ? bot.tools : ALL_TOOLS
-  const actions: string[] = bot ? bot.actions : Object.keys(ACTION_TOOLS)
+  // The general Chat is read-only: only agents with actions switched on can propose changes.
+  const actions: string[] = bot ? bot.actions : []
   const model = MODELS[bot?.model ?? 'balanced']
 
   const { data: history } = await me.db.from('chat_messages').select('role, text').eq('conversation_id', conv!.id).order('created_at', { ascending: false }).limit(20)
@@ -80,7 +81,7 @@ handle(async req => {
     `You are ${bot ? bot.name + ', an agent' : 'the assistant'} inside the lead portal of ${firm?.name}, a law firm. You are talking with ${me.name}. Today is ${new Date().toISOString().slice(0, 10)}.`,
     bot?.instructions ? `Your instructions from the firm:\n${bot.instructions}` : '',
     'Answer only from the firm data below; say so when it does not contain the answer. Never give legal advice. Keep answers short.',
-    actions.length ? 'To change something, call one of your tools. The change is shown to the person and only happens if they approve it, so propose at most one change per reply and say what you proposed.' : 'You can read but not change anything.',
+    actions.length ? 'To change something, call one of your tools. The change is shown to the person and only happens if they approve it, so propose at most one change per reply and say what you proposed.' : 'You can read but not change anything. If asked to change something, say that Chat is read-only and the person can do it from the page itself or ask an agent.',
     `# Firm data\n${await snapshot(me.db, me.firmId, tools)}`,
   ].filter(Boolean).join('\n\n')
 

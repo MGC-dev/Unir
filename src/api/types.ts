@@ -94,7 +94,7 @@ export interface Task {
 
 export interface FirmEvent { id: string; t: number; dur: number; title: string; who: string }
 
-export interface Integration { id: string; name: string; icon: string; on: boolean; desc: string }
+export interface Integration { id: string; name: string; icon: string; on: boolean; desc: string; /** The connected account, e.g. the Gmail address. */ account?: string }
 
 export interface Firm {
   name: string

@@ -11,6 +11,8 @@ handle(async req => {
   if (!msg?.action) throw new HttpError(404, 'No change to approve')
   if (msg.action.status !== 'proposed') throw new HttpError(409, `This change was already ${msg.action.status}`)
   const botId = (msg.conversations as unknown as { bot_id: string | null } | null)?.bot_id ?? null
+  // The general Chat is read-only: only an agent's proposals can be approved (older ones can still be declined).
+  if (!botId && b.decision === 'approve') throw new HttpError(403, 'Chat can only read, not change things')
   const db = admin()
 
   let action = { ...msg.action }

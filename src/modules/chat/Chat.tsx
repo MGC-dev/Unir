@@ -15,9 +15,8 @@ import { ThinkingPromptInput, type ThinkingStatus, type ThinkingStep, type Think
 const SUGGESTIONS = [
   'What needs my attention today?',
   'Summarise the pipeline',
-  'Move Tom Alvarez to Consultation',
-  'Book a call with Rachel Greene tomorrow',
-  'Create a lead for Priya Shah',
+  'Which tasks are overdue?',
+  'How are my campaigns doing?',
   'Which contracts are waiting for a signature?',
 ]
 
@@ -114,7 +113,7 @@ type Live = {
   replyId?: string
 }
 
-/** Ask the UNIR assistant about the portal, or tell it to do something in it. Changes ask for approval first. */
+/** Ask the UNIR assistant about the portal. It only reads: changes are made on the page itself or by an agent. */
 export default function Chat() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -284,7 +283,7 @@ export default function Chat() {
             <div className="grid justify-items-center gap-2.5 text-center">
               <span className="rounded-full shadow-[0_10px_28px_rgba(31,79,216,0.32)]"><AiOrb size={60} className="block" /></span>
               <h2 className="mt-1 text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ios-label">How can I help you today?</h2>
-              <p className="text-[15px] text-ios-secondary">Ask about your portal, or tell me to do something in it. Changes wait for your approval.</p>
+              <p className="text-[15px] text-ios-secondary">Ask anything about your portal. I can read it, but not change it.</p>
             </div>
           )}
           {empty && (

@@ -19,6 +19,11 @@ enable_signup = false
 [functions.resend-webhook]
 verify_jwt = false
 
+# Google sends people back here after Gmail consent, without a Supabase login; it checks its signed state instead.
+# Its POST actions (start, disconnect) still require the person's login, checked in the function.
+[functions.google-oauth]
+verify_jwt = false
+
 # The scheduler (pg_cron) calls this with its own secret; signed-in people call it with their login.
 [functions.run-agent]
 verify_jwt = false

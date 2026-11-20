@@ -14,13 +14,21 @@ export default function Messages() {
   const { filter, openLead } = useUi()
   if (!leads) return null
   const f = filter.inbox
+  const soon = (
+    <div className="group" role="note" style={{ padding: 'var(--s3) var(--s4)', display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
+      <Tag tone="orange" icon="bolt">Coming Soon</Tag>
+      <span className="secondary">Texting (SMS) is rolling out soon. Until then, messages to leads go out by email.</span>
+    </div>
+  )
+  if (f === 'text') return <>{soon}<Empty icon="messages">Texts will show up here once texting is rolled out.</Empty></>
   const all: { l: Lead; a: Activity }[] = []
   leads.forEach(l => l.activities.forEach(a => { if ((f === 'all' && ['text', 'email', 'enquiry'].includes(a.type)) || a.type === f) all.push({ l, a }) }))
   all.sort((x, y) => y.a.t - x.a.t)
-  if (!all.length) return <Empty icon="messages">No messages yet. They appear here as soon as an enquiry comes in.</Empty>
+  if (!all.length) return <>{soon}<Empty icon="messages">No messages yet. They appear here as soon as an enquiry comes in.</Empty></>
   const items = all.slice(0, 40)
   return (
     <>
+      {soon}
       <div className="group only-desk"><div className="table-wrap">
         <table style={{ minWidth: 720 }}>
           <thead><tr><th>Contact</th><th>Type</th><th>Message</th><th>When</th></tr></thead>

@@ -5,6 +5,7 @@ import { BOT_ACTIONS, BOT_MODELS, BOT_TOOLS, EXTERNAL_TOOLS, type Bot, type BotM
 import { when } from '../../shared/format'
 import { cn } from '@/lib/utils'
 import { BotAvatar } from './BotAvatar'
+import { InfoTip } from '../../shared/InfoTip'
 
 const localTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Johannesburg' } catch { return 'Africa/Johannesburg' } }
 const noSchedule = (): BotSchedule => ({ enabled: false, days: [1, 2, 3, 4, 5], time: '08:00', tz: localTz(), to: [] })
@@ -12,6 +13,8 @@ const toInput = (a: Bot): BotInput => ({
   name: a.name, description: a.description, instructions: a.instructions, model: a.model, tools: [...a.tools], actions: [...a.actions], external: [...a.external], active: a.active,
   schedule: a.schedule ? { ...a.schedule, days: [...a.schedule.days], to: [...a.schedule.to] } : noSchedule(),
 })
+/** Shown beside both permission groups. */
+const TOKEN_TIP = 'The more you switch on, the more the agent reads and does on every message, so it uses more tokens. Switch on only what it needs.'
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 /** "Weekdays at 08:00", "Every day at 07:30", "Mon, Wed at 09:00". */
 const scheduleLabel = (s: BotSchedule) => {
@@ -36,10 +39,10 @@ function Switch({ on, onChange, labelledBy }: { on: boolean; onChange: () => voi
 }
 
 /** A grouped list: a small heading, rounded white rows with hairline separators, and a footer that explains it. */
-function Group({ title, footer, children }: { title?: string; footer?: ReactNode; children: ReactNode }) {
+function Group({ title, tip, footer, children }: { title?: string; tip?: string; footer?: ReactNode; children: ReactNode }) {
   return (
     <section className="grid gap-1.5">
-      {title && <h3 className="px-4 text-[12px] font-medium uppercase tracking-[0.04em] text-ios-secondary">{title}</h3>}
+      {title && <h3 className="flex items-center gap-1 px-4 text-[12px] font-medium uppercase tracking-[0.04em] text-ios-secondary">{title}{tip && <InfoTip text={tip} label={`About ${title.toLowerCase()}`} />}</h3>}
       <div className="overflow-hidden rounded-xl bg-white [&>*+*]:border-t [&>*+*]:border-ios-separator">{children}</div>
       {footer && <p className="px-4 text-[12.5px] leading-[17px] text-ios-secondary">{footer}</p>}
     </section>
@@ -93,9 +96,23 @@ export function AgentInspector({ bot, isNew, onClose, onDeleted }: { bot: Bot; i
   const [running, setRunning] = useState(false)
   const runNow = async () => { setRunning(true); try { await botsApi.runNow(bot.id) } finally { setRunning(false) } }
   const sched = draft.schedule
+  // The agent sets itself up from a plain description; the person reviews the draft and saves.
+  const [describing, setDescribing] = useState(() => !!isNew || !bot.instructions.trim())
+  const [brief, setBrief] = useState('')
+  const [settingUp, setSettingUp] = useState(false)
+  const setUp = async () => {
+    if (!brief.trim()) { setError('Describe what the agent should do first.'); return }
+    setSettingUp(true); setError('')
+    try {
+      const d = await botsApi.setup(brief.trim())
+      setDraft(cur => ({ ...cur, ...d }))
+      setDescribing(false)
+    } catch (e) { setError(e instanceof Error ? e.message : 'The agent couldn’t set itself up. Try again.') }
+    finally { setSettingUp(false) }
+  }
 
   // Another agent opened in the same inspector: start from its saved settings.
-  useEffect(() => { setDraft(toInput(bot)); setError(''); setConfirming(false) }, [bot.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setDraft(toInput(bot)); setError(''); setConfirming(false); setBrief(''); setDescribing(!!isNew || !bot.instructions.trim()) }, [bot.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (isNew) name.current?.select() }, [isNew, bot.id])
 
   const save = async () => {
@@ -136,6 +153,22 @@ export function AgentInspector({ bot, isNew, onClose, onDeleted }: { bot: Bot; i
             </div>
           </div>
 
+          {describing ? (
+            <Group title="Set it up for me" footer="Describe its job in a sentence or two. It writes its own name, instructions and permissions, and switches on only what it needs. Review them, then Save.">
+              <textarea aria-label="What should this agent do?" rows={3} value={brief} onChange={e => setBrief(e.target.value)} disabled={settingUp}
+                placeholder="e.g. Every morning, summarise new enquiries and overdue follow-ups for the intake team."
+                className="block w-full resize-y bg-white px-4 py-3 text-[15px] leading-[22px] text-ios-label outline-none placeholder:text-ios-tertiary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ios-accent/[0.12] disabled:opacity-60" />
+              <button type="button" disabled={settingUp || !brief.trim()} onClick={setUp}
+                className="flex min-h-11 w-full items-center justify-center text-[15px] font-semibold text-ios-accent outline-none hover:bg-black/[0.03] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ios-accent/40 disabled:opacity-40">
+                {settingUp ? 'Setting itself up…' : 'Set up agent'}
+              </button>
+            </Group>
+          ) : (
+            <button type="button" onClick={() => setDescribing(true)} className="justify-self-center rounded-lg px-2 py-1 text-[14px] font-medium text-ios-accent outline-none hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-ios-accent/50">
+              Set it up again from a description
+            </button>
+          )}
+
           {error && <p role="alert" className="rounded-xl bg-white px-4 py-3 text-[14px] text-ios-red">{error}</p>}
 
           <Group footer={draft.active ? 'Anyone in the firm can chat with it.' : 'A draft. Switch it on and save to start chatting with it.'}>
@@ -149,19 +182,17 @@ export function AgentInspector({ bot, isNew, onClose, onDeleted }: { bot: Bot; i
             </div>
           </Group>
 
-          <Group title="Can look at" footer="What it can read in the portal. Asked about anything else, it says it can’t see it.">
+          <Group title="Inside the portal" tip={TOKEN_TIP}
+            footer="What it can read and change in the portal. Every change waits for your approval in the chat before it happens.">
             {Object.entries(BOT_TOOLS).map(([k, t]) => (
-              <SwitchRow key={k} label={t.label} hint={t.hint} on={draft.tools.includes(k as never)} onChange={() => set({ tools: flip(draft.tools, k as never) })} />
+              <SwitchRow key={k} label={`Read ${t.label.toLowerCase()}`} hint={t.hint} on={draft.tools.includes(k as never)} onChange={() => set({ tools: flip(draft.tools, k as never) })} />
             ))}
-          </Group>
-
-          <Group title="Can do in the portal" footer="Every change waits for your approval in the chat before it happens.">
             {Object.entries(BOT_ACTIONS).map(([k, t]) => (
               <SwitchRow key={k} label={t.label} hint={t.hint} on={draft.actions.includes(k as never)} onChange={() => set({ actions: flip(draft.actions, k as never) })} />
             ))}
           </Group>
 
-          <Group title="Outside the portal" footer="The general assistant in Chat stays inside the portal. Use an agent for anything online.">
+          <Group title="Outside the portal" tip={TOKEN_TIP} footer="The general assistant in Chat stays inside the portal. Use an agent for anything online.">
             {Object.entries(EXTERNAL_TOOLS).map(([k, t]) => (
               <SwitchRow key={k} label={t.label} hint={t.hint} on={draft.external.includes(k as never)} onChange={() => set({ external: flip(draft.external, k as never) })} />
             ))}

@@ -5,7 +5,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { config as seedConfig, enquiryPool, team as seedTeam } from './mockData'
 import * as srv from './mockServer'
 import { store, live } from './mockServer'
-import { addDomain, botRuns, checkDomain, inviteMember, isAdmin, liveChat, reload as reloadLive, remote, runAgent, uploadLogo } from './remote'
+import { addDomain, agentSetup, botRuns, gmailConnect, gmailDisconnect, checkDomain, inviteMember, isAdmin, liveChat, reload as reloadLive, remote, runAgent, uploadLogo } from './remote'
 
 export { live }
 import { toast } from '../shared/toast' // mock-only: a real backend would not toast, the UI would
@@ -239,6 +239,8 @@ export const integrationsApi = {
   list: (): Promise<Integration[]> => reply(store.get().integrations),
   toggle(id: string) {
     const x = store.get().integrations.find(i => i.id === id)
+    // Gmail connects for real through Google sign-in; the others are switches for now.
+    if (live && x && id === 'gmail') return (x.on ? gmailDisconnect() : gmailConnect()).catch(e => toast(x.on ? 'Couldn’t disconnect Gmail' : 'Couldn’t connect Gmail', e instanceof Error ? e.message : undefined))
     if (x) { x.on = !x.on; toast(`${x.name} ${x.on ? 'connected' : 'disconnected'}`, x.on ? 'Sample mode, no account is linked' : undefined) }
     return done()
   },
@@ -296,6 +298,11 @@ export const botsApi = {
     const a: Bot = { id: srv.uid('a'), name: 'Untitled agent', description: '', instructions: '', model: 'balanced', tools: ['leads'], actions: [], external: [], active: false, runs: 0, createdAt: now, updatedAt: now, updatedBy: 'Sarah Mitchell' }
     store.get().bots.unshift(a); store.commit()
     return reply(a)
+  },
+  /** A draft setup from a plain description of the job: name, instructions, model and the fewest permissions it needs. Not saved. */
+  async setup(description: string): Promise<Omit<BotInput, 'active' | 'schedule'>> {
+    if (live) return agentSetup(description)
+    return srv.draftAgent(description)
   },
   update(id: string, input: BotInput) {
     const a = store.get().bots.find(x => x.id === id)

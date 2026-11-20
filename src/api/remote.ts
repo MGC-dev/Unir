@@ -142,7 +142,7 @@ async function fetchAll(): Promise<Tables> {
       id: r.id, name: r.name, channel: r.channel, subject: r.subject ?? undefined, body: r.body, tags: r.tags?.length ? r.tags : undefined,
       createdAt: ms(r.created_at)!, updatedAt: ms(r.updated_at)!, updatedBy: nameOf(r.updated_by),
     })),
-    integrations: seed.integrations().map(i => ({ ...i, on: integ.find(x => x.provider === i.id)?.enabled ?? false })),
+    integrations: seed.integrations().map(i => { const r = integ.find(x => x.provider === i.id); return { ...i, on: r?.enabled ?? false, account: r?.enabled ? r?.settings?.email || undefined : undefined } }),
     bots: bots.map((r): Bot => ({
       id: r.id, name: r.name, description: r.description, instructions: r.instructions, model: r.model, tools: r.tools, actions: r.actions, external: r.external,
       active: r.active, runs: r.runs, createdAt: ms(r.created_at)!, updatedAt: ms(r.updated_at)!, updatedBy: nameOf(r.updated_by),
@@ -386,6 +386,22 @@ export async function checkDomain(): Promise<string> {
   return r.status
 }
 
+/* ---------- Gmail (Google OAuth) ---------- */
+
+/** Sends the browser to Google's consent screen; Google comes back to Integrations with ?gmail=connected. */
+export async function gmailConnect() {
+  await flush()
+  const { url } = await invoke<{ url: string }>('google-oauth', { action: 'start' })
+  window.location.assign(url)
+}
+
+/** Revokes the firm's Gmail access and switches the integration off. */
+export async function gmailDisconnect() {
+  await invoke('google-oauth', { action: 'disconnect' })
+  await reload()
+  toast('Gmail disconnected')
+}
+
 /* ---------- agents running on their own ---------- */
 
 /** An agent's 20 most recent runs. */
@@ -395,6 +411,12 @@ export async function botRuns(botId: string): Promise<BotRun[]> {
   return (data ?? []).map((r: Any): BotRun => ({
     id: r.id, at: ms(r.at)!, trigger: r.trigger, status: r.status, output: r.output, recipients: r.recipients ?? [], emailStatus: r.email_status, error: r.error ?? undefined,
   }))
+}
+
+/** The agent sets itself up: Claude drafts its name, instructions and permissions from a description. Nothing is saved. */
+export async function agentSetup(description: string) {
+  const r = await invoke<{ draft: Any }>('agent-setup', { description })
+  return r.draft
 }
 
 /** Runs an agent once, now (its settings must be saved first, which flush does). */
