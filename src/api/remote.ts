@@ -153,7 +153,7 @@ async function fetchAll(): Promise<Tables> {
       id: r.id, name: r.name, description: r.description, instructions: r.instructions, model: r.model, tools: r.tools, actions: r.actions, external: r.external,
       active: r.active, runs: r.runs, createdAt: ms(r.created_at)!, updatedAt: ms(r.updated_at)!, updatedBy: nameOf(r.updated_by),
       lastRunAt: ms(r.last_run_at),
-      schedule: { enabled: r.schedule_enabled, days: r.schedule_days ?? [], time: String(r.schedule_time ?? '08:00').slice(0, 5), tz: r.schedule_tz, to: (r.deliver_to ?? []).map(nameOf).filter(Boolean) },
+      schedule: { enabled: r.schedule_enabled, days: r.schedule_days ?? [], time: String(r.schedule_time ?? '08:00').slice(0, 5), tz: r.schedule_tz, to: (r.deliver_to ?? []).map(nameOf).filter(Boolean), pdf: !!r.deliver_pdf },
     })),
     conversations: convs.map((r): ChatConversation => ({
       id: r.id, title: r.title, botId: r.bot_id, createdAt: ms(r.created_at)!, updatedAt: ms(r.updated_at)!, unread: r.unread || undefined,
@@ -230,7 +230,7 @@ function rowsOf(t: Tables): Rows {
     id: b.id, firm_id: fid, name: b.name, description: b.description, instructions: b.instructions, model: b.model, tools: b.tools, actions: b.actions, external: b.external, active: b.active,
     ...(b.schedule ? {
       schedule_enabled: b.schedule.enabled, schedule_days: b.schedule.days, schedule_time: b.schedule.time, schedule_tz: b.schedule.tz,
-      deliver_to: b.schedule.to.map(idOf).filter((x): x is string => !!x),
+      deliver_to: b.schedule.to.map(idOf).filter((x): x is string => !!x), deliver_pdf: !!b.schedule.pdf,
     } : {}),
   })
   return Object.fromEntries(TABLES.map(([n, key]) => [n, new Map(out[n].map(r => [key.split(',').map(k => String(r[k])).join('|'), JSON.stringify(r)]))]))

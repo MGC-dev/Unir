@@ -9,6 +9,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { HttpError, admin, audit, caller, env, json } from '../_shared/core.ts'
 import { type FirmRow, brandOf, emailBlocked, fromAddress, renderEmail, sendEmail } from '../_shared/messaging.ts'
+import { reportPdf, toBase64 } from '../_shared/pdf.ts'
 
 const MODELS: Record<string, string> = {
   fast: Deno.env.get('MODEL_FAST') || 'claude-haiku-5-5',
@@ -18,7 +19,7 @@ const MODELS: Record<string, string> = {
 
 interface BotRow {
   id: string; firm_id: string; name: string; instructions: string; model: string; tools: string[]; active: boolean
-  schedule_tz: string; deliver_to: string[]; runs: number
+  schedule_tz: string; deliver_to: string[]; deliver_pdf?: boolean; runs: number
 }
 
 /** A compact snapshot of the firm's data, limited to what the agent may read. */
@@ -82,7 +83,15 @@ async function run(db: SupabaseClient, bot: BotRow, trigger: 'schedule' | 'manua
     else {
       try {
         const designed = renderEmail(brandOf(firm!), output)
-        await sendEmail({ from: fromAddress(firm!), to: recipients, subject: `${bot.name}, ${today}`, text: designed.text, html: designed.html, tags: [{ name: 'agent', value: bot.id }] })
+        // Attached as a PDF too, when the agent is set to. A PDF that fails doesn't stop the email.
+        let attachments: { filename: string; content: string }[] | undefined
+        if (bot.deliver_pdf) {
+          try {
+            const day = now.toLocaleDateString('en-CA', { timeZone: bot.schedule_tz })
+            attachments = [{ filename: `${bot.name.replace(/[^\w -]+/g, '').trim() || 'Report'} ${day}.pdf`, content: toBase64(await reportPdf(bot.name, `${firm!.name} · ${today}`, output)) }]
+          } catch (e) { console.error('pdf failed', e) }
+        }
+        await sendEmail({ from: fromAddress(firm!), to: recipients, subject: `${bot.name}, ${today}`, text: designed.text, html: designed.html, tags: [{ name: 'agent', value: bot.id }], attachments })
         emailStatus = 'sent'
       } catch (e) { emailStatus = 'failed'; error = e instanceof Error ? e.message : 'Email failed' }
     }

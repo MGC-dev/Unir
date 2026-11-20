@@ -426,16 +426,43 @@ const TEACHING = /^(from now on|going forward|your (job|role|task|instructions)|
 /** One sentence for the agent list, from what it was told. */
 const summary = (s: string) => { const first = s.split(/(?<=[.!?])\s/)[0].trim(); return first.length > 120 ? first.slice(0, 117) + '…' : first }
 
-/** An agent learns its job in its chat: the first thing it is told, and anything said as "from now on…" later. */
+const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+/** "Every day at 20:30", "weekdays at 8am", "stop sending": a request to run on a schedule, read the simple way. */
+function scheduleFrom(text: string, bot: Bot): string | null {
+  const prev = bot.schedule ?? { enabled: false, days: [1, 2, 3, 4, 5], time: '08:00', tz: 'Africa/Johannesburg', to: [] }
+  if (/\b(stop|cancel|turn off)\b.*\b(sending|schedule|report|running|daily|every)/i.test(text)) {
+    bot.schedule = { ...prev, enabled: false }
+    return 'My schedule is off: I won’t run on my own.'
+  }
+  const t = text.match(/\bat\s+(\d{1,2})(?:[:h.](\d{2}))?\s*(am|pm)?/i)
+  if (!t || !/\b(every|each|daily|weekdays?|weekends?|morning|evening|night)\b/i.test(text)) return null
+  let h = Number(t[1]) % 24; const m = Number(t[2] ?? 0)
+  if (t[3]?.toLowerCase() === 'pm' && h < 12) h += 12
+  if (t[3]?.toLowerCase() === 'am' && h === 12) h = 0
+  const days = /weekdays?/i.test(text) ? [1, 2, 3, 4, 5] : /weekends?/i.test(text) ? [0, 6]
+    : WEEKDAY.map((d, i) => (new RegExp(`\\b${d}`, 'i').test(text) ? i : -1)).filter(i => i >= 0)
+  const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  const me = config.owners[0]
+  bot.schedule = { enabled: true, days: days.length ? days : [0, 1, 2, 3, 4, 5, 6], time, tz: /sast|south africa/i.test(text) ? 'Africa/Johannesburg' : prev.tz,
+    to: [...new Set([...prev.to, me])], pdf: /\bpdf\b/i.test(text) || !!prev.pdf }
+  const s = bot.schedule, all = s.days.length === 7
+  return `Scheduled: ${all ? 'every day' : s.days.join() === '1,2,3,4,5' ? 'every weekday' : 'every ' + s.days.map(i => WEEKDAY[i]).join(', ')} at ${time} (${s.tz.replace(/_/g, ' ')}), emailed to you${s.pdf ? ' with a PDF' : ''}. Scheduled runs happen in the live portal only.`
+}
+
+/** An agent learns its job in its chat: the first thing it is told, anything said as "from now on…" later, and when to run. */
 function learn(text: string, bot: Bot): Reply | null {
   const first = !bot.instructions.trim()
-  if (!first && !TEACHING.test(text)) return null
-  bot.instructions = first ? text : `${bot.instructions}\n${text}`
-  if (first || !bot.description) bot.description = summary(text)
+  const scheduled = scheduleFrom(text, bot)
+  if (!first && !TEACHING.test(text) && !scheduled) return null
+  if (first || TEACHING.test(text)) {
+    bot.instructions = first ? text : `${bot.instructions}\n${text}`
+    if (first || !bot.description) bot.description = summary(text)
+  }
   bot.updatedAt = Date.now()
-  return { text: first
+  const said = first
     ? `Got it. That's my job now, and I'll follow it in every chat. You can change it any time by telling me "from now on…", or in my settings.`
-    : `Noted. I've added that to my instructions.` }
+    : TEACHING.test(text) ? `Noted. I've added that to my instructions.` : ''
+  return { text: [said, scheduled].filter(Boolean).join('\n') }
 }
 
 function answer(text: string, bot: Bot | undefined): Reply {

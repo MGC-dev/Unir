@@ -40,6 +40,24 @@ const LEARN_TOOL = {
   } },
 }
 
+/** Agents can run on their own: this sets when, and emails each report to the person asking (optionally as a PDF). */
+const SCHEDULE_TOOL = {
+  name: 'set_schedule',
+  description: 'Set when you run on your own. At that time you follow your instructions with the firm data, and your answer is emailed from the firm’s address to the person you are talking with, optionally attached as a PDF. Call it when asked to send, report or check something regularly, or to stop.',
+  input_schema: { type: 'object', required: ['enabled'], properties: {
+    enabled: { type: 'boolean', description: 'false stops the schedule' },
+    days: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 6 }, description: '0 = Sunday … 6 = Saturday. Every day: [0,1,2,3,4,5,6]. Weekdays: [1,2,3,4,5].' },
+    time: { type: 'string', description: '24-hour local time, "HH:MM"' },
+    timezone: { type: 'string', description: 'IANA time zone, e.g. Africa/Johannesburg for SAST. Default Africa/Johannesburg.' },
+    pdf: { type: 'boolean', description: 'Attach the report to the email as a PDF' },
+  } },
+}
+const DAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const daysText = (d: number[]) => { const s = [...d].sort().join(); return s === '0,1,2,3,4,5,6' ? 'every day' : s === '1,2,3,4,5' ? 'every weekday' : s === '0,6' ? 'every weekend' : 'every ' + d.map(i => DAY[i]).join(', ') }
+/** How the agent's schedule reads to it and to the person. */
+const scheduleText = (b: { schedule_enabled: boolean; schedule_days: number[]; schedule_time: string; schedule_tz: string; deliver_pdf?: boolean }) =>
+  b.schedule_enabled ? `${daysText(b.schedule_days)} at ${String(b.schedule_time).slice(0, 5)} (${b.schedule_tz})${b.deliver_pdf ? ', emailed with a PDF' : ', emailed'}` : 'off'
+
 /** A compact snapshot of the firm's data for the tools this assistant may read (read as the person, so RLS applies). */
 async function snapshot(db: SupabaseClient, firmId: string, tools: string[]) {
   const parts: string[] = []
@@ -93,6 +111,7 @@ handle(async req => {
     bot?.instructions ? `Your instructions from the firm:\n${bot.instructions}` : '',
     bot && !bot.instructions?.trim() ? 'You have no instructions yet. Unless the person is already telling you your job, briefly ask what they want you to do. When they tell you, call update_instructions.' : '',
     bot ? 'If the person tells you how to work from now on, call update_instructions so you remember it.' : '',
+    bot ? `You can run on your own on a schedule (now: ${scheduleText(bot)}). At that time you follow your instructions with the firm data, and your answer is emailed to the people chosen, as text and optionally as a PDF attachment. When asked to send or report something regularly, save the job with update_instructions and set the time with set_schedule. You cannot send anything else on your own.` : '',
     'Answer only from the firm data below; say so when it does not contain the answer. Never give legal advice. Keep answers short.',
     actions.length ? 'To change something, call one of your tools. The change is shown to the person and only happens if they approve it, so propose at most one change per reply and say what you proposed.' : 'You can read but not change anything. If asked to change something, say that Chat is read-only and the person can do it from the page itself or ask an agent.',
     `# Firm data\n${await snapshot(me.db, me.firmId, tools)}`,
@@ -104,7 +123,7 @@ handle(async req => {
     body: JSON.stringify({
       model, max_tokens: 1024, system,
       messages: [...past, { role: 'user', content: text }],
-      tools: [...actions.filter(a => ACTION_TOOLS[a]).map(a => ({ name: a, ...ACTION_TOOLS[a] })), ...(bot ? [LEARN_TOOL] : [])],
+      tools: [...actions.filter(a => ACTION_TOOLS[a]).map(a => ({ name: a, ...ACTION_TOOLS[a] })), ...(bot ? [LEARN_TOOL, SCHEDULE_TOOL] : [])],
     }),
   })
   const out = await res.json()
@@ -126,6 +145,30 @@ handle(async req => {
     }).eq('id', bot.id).eq('firm_id', me.firmId)
     if (!answer) answer = first ? 'Got it. That’s my job now, and I’ll follow it in every chat. Tell me “from now on…” any time to change it.' : 'Noted. I’ve updated my instructions.'
   }
+  // The agent was asked to run regularly: set its schedule and email the person asking.
+  const sched = bot ? blocks.find(x => x.type === 'tool_use' && x.name === 'set_schedule') : undefined
+  let scheduled = false
+  if (sched) {
+    const i = sched.input ?? {}
+    const on = i.enabled !== false
+    const days = Array.isArray(i.days) ? [...new Set((i.days as unknown[]).map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))] : bot.schedule_days
+    const time = /^([01]?\d|2[0-3]):[0-5]\d$/.test(String(i.time ?? '')) ? String(i.time).padStart(5, '0') : String(bot.schedule_time).slice(0, 5)
+    const patch = {
+      schedule_enabled: on && days.length > 0, schedule_days: days.length ? days : bot.schedule_days, schedule_time: time,
+      schedule_tz: String(i.timezone || bot.schedule_tz || 'Africa/Johannesburg'),
+      deliver_pdf: typeof i.pdf === 'boolean' ? i.pdf : !!bot.deliver_pdf,
+      deliver_to: on ? [...new Set([...(bot.deliver_to ?? []), me.user.id])] : bot.deliver_to,
+      updated_by: me.user.id,
+    }
+    const { error } = await db.from('bots').update(patch).eq('id', bot.id).eq('firm_id', me.firmId)
+    if (error) answer = `${answer ? answer + '\n\n' : ''}I couldn’t set that schedule: ${error.message}.`
+    else {
+      scheduled = true
+      const note = patch.schedule_enabled ? `Scheduled: ${scheduleText(patch)} to you. It can arrive up to 15 minutes after that time.` : 'My schedule is off: I won’t run on my own.'
+      answer = answer ? `${answer}\n\n${note}` : note
+    }
+  }
+
   const action = call ? {
     kind: call.name, status: 'proposed',
     params: Object.fromEntries(Object.entries(call.input ?? {}).map(([k, v]) => [k, Array.isArray(v) ? v : String(v)])),
@@ -141,7 +184,7 @@ handle(async req => {
   await db.from('conversations').update({ updated_at: new Date().toISOString() }).eq('id', conv!.id)
   if (bot) await db.rpc('bump_bot_runs', { p_bot: bot.id })
   await audit({ firmId: me.firmId, actorType: bot ? 'agent' : 'user', actorId: me.user.id, botId: bot?.id, action: 'chat.message', table: 'chat_messages', recordId: reply?.id,
-    meta: { conversation_id: conv!.id, model: out.model ?? model, input_tokens: out.usage?.input_tokens, output_tokens: out.usage?.output_tokens, proposed: action?.kind ?? null, instructions_updated: learned } })
+    meta: { conversation_id: conv!.id, model: out.model ?? model, input_tokens: out.usage?.input_tokens, output_tokens: out.usage?.output_tokens, proposed: action?.kind ?? null, instructions_updated: learned, schedule_updated: scheduled } })
 
-  return json({ conversation_id: conv!.id, message: reply, instructions_updated: learned })
+  return json({ conversation_id: conv!.id, message: reply, instructions_updated: learned || scheduled })
 })

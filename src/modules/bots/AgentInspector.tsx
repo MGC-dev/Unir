@@ -8,7 +8,7 @@ import { BotAvatar } from './BotAvatar'
 import { InfoTip } from '../../shared/InfoTip'
 
 const localTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Johannesburg' } catch { return 'Africa/Johannesburg' } }
-const noSchedule = (): BotSchedule => ({ enabled: false, days: [1, 2, 3, 4, 5], time: '08:00', tz: localTz(), to: [] })
+const noSchedule = (): BotSchedule => ({ enabled: false, days: [1, 2, 3, 4, 5], time: '08:00', tz: localTz(), to: [], pdf: false })
 const toInput = (a: Bot): BotInput => ({
   name: a.name, description: a.description, instructions: a.instructions, model: a.model, tools: [...a.tools], actions: [...a.actions], external: [...a.external], active: a.active,
   schedule: a.schedule ? { ...a.schedule, days: [...a.schedule.days], to: [...a.schedule.to] } : noSchedule(),
@@ -169,8 +169,8 @@ export function AgentInspector({ bot, onClose, onDeleted }: { bot: Bot; onClose:
           </Group>
 
           <Group title="Schedule" footer={sched.enabled
-            ? `${scheduleLabel(sched)}, ${sched.tz.replace(/_/g, ' ')} time. It follows its instructions, using only what it can look at, and emails the result.${live ? '' : ' Schedules run in the live portal only.'}`
-            : 'Run it by itself, like a daily lead update, and email the result to your team.'}>
+            ? `${scheduleLabel(sched)}, ${sched.tz.replace(/_/g, ' ')} time. It follows its instructions, using only what it can look at, and emails the result${sched.pdf ? ' with a PDF' : ''}.${live ? '' : ' Schedules run in the live portal only.'}`
+            : 'Run it by itself, like a daily lead update, and email the result to your team. You can also just ask it in the chat.'}>
             <SwitchRow label="Run automatically" on={sched.enabled} onChange={() => setSchedule({ enabled: !sched.enabled })} />
             {sched.enabled && (
               <>
@@ -190,6 +190,7 @@ export function AgentInspector({ bot, onClose, onDeleted }: { bot: Bot; onClose:
                   <input type="time" value={sched.time} onChange={e => setSchedule({ time: e.target.value || '08:00' })}
                     className="rounded-lg bg-ios-field px-2 py-1 text-[15px] text-ios-label outline-none focus-visible:ring-2 focus-visible:ring-ios-accent/50" />
                 </label>
+                <SwitchRow label="Attach as PDF" hint="The email also carries the report as a PDF" on={!!sched.pdf} onChange={() => setSchedule({ pdf: !sched.pdf })} />
               </>
             )}
           </Group>

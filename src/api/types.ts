@@ -323,6 +323,8 @@ export interface BotSchedule {
   tz: string
   /** Team members (by name) who get the result by email. */
   to: string[]
+  /** Attach the result to the email as a PDF too. */
+  pdf?: boolean
 }
 
 /** One time an agent ran by itself (on its schedule, or with Run now). */

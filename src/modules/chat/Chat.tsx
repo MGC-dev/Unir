@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { IconCheck, IconChevronRight, IconEdit, IconLayoutSidebar, IconSearch, IconTrash, IconX } from '@tabler/icons-react'
-import { chatApi, useQuery } from '../../api'
+import { chatApi, live, useQuery } from '../../api'
 import { BOT_TOOLS, type ChatConversation, type ChatMessage } from '../../api/types'
 import { timeOf } from '../../shared/format'
 import { usePhone } from '../../shared/useMedia'
@@ -311,7 +311,7 @@ export default function Chat() {
             history={conv && turns.slice(0, -1).map(t => <PastTurn key={t.user.id} turn={t} convId={conv.id} />)}
             answerFooter={conv && reply?.action ? <ActionCard convId={conv.id} m={reply} /> : undefined}
           />
-          <p className="mt-1.5 text-center text-[11.5px] text-ios-secondary">Answers come from this portal’s sample data. For anything online, use an agent.</p>
+          <p className="mt-1.5 text-center text-[11.5px] text-ios-secondary">{live ? 'Answers come from your firm’s data in the portal.' : 'Answers come from this portal’s sample data.'} For anything online, use an agent.</p>
         </div>
       </section>
     </div>

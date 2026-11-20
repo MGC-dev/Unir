@@ -42,7 +42,7 @@ export const textBlocked = (firm: FirmRow) =>
 
 export const fromAddress = (firm: FirmRow) => `${firm.name} <intake@${firm.domain}>`
 
-export interface Email { from: string; to: string | string[]; subject: string; text: string; html?: string; headers?: Record<string, string>; tags?: { name: string; value: string }[] }
+export interface Email { from: string; to: string | string[]; subject: string; text: string; html?: string; headers?: Record<string, string>; tags?: { name: string; value: string }[]; attachments?: { filename: string; content: string }[] }
 
 /**
  * Unsubscribe links for one lead: the page in the portal (shown in the email), and the one-click endpoint that

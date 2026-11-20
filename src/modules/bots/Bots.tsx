@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { IconArrowDown, IconArrowUp, IconCheck, IconChevronLeft, IconPlus, IconSettings, IconSearch, IconX } from '@tabler/icons-react'
-import { botsApi, chatApi, useQuery } from '../../api'
+import { botsApi, chatApi, live, useQuery } from '../../api'
 import { BOT_MODELS, type Bot, type ChatConversation, type ChatMessage } from '../../api/types'
 import { usePhone } from '../../shared/useMedia'
 import { timeOf, when } from '../../shared/format'
@@ -270,7 +270,7 @@ export default function Bots() {
                     <button type="button" onClick={() => navigate(`/dashboard/agents/${bot.id}/settings`)} className={cn('rounded font-medium text-ios-accent hover:underline', focusRing)}>Switch it on</button>
                   </p>
                 )}
-                <p className="mt-1.5 text-center text-[11.5px] text-ios-secondary">Answers come from this portal’s sample data. Changes in the portal wait for your approval.</p>
+                <p className="mt-1.5 text-center text-[11.5px] text-ios-secondary">{live ? 'Answers come from your firm’s data in the portal.' : 'Answers come from this portal’s sample data.'} Changes in the portal wait for your approval.</p>
               </div>
             </>
           )}
