@@ -1,5 +1,6 @@
 // Chat and Agents: answers a message with Claude, using the firm's own data. The general Chat only reads; agents can
-// propose changes for a person to approve (approval is handled by chat-action). With bot_id it answers as that agent: its instructions, model, and
+// propose changes for a person to approve (approval is handled by chat-action), and learn their job from the chat:
+// what the person tells them is saved as their instructions (update_instructions). With bot_id it answers as that agent: its instructions, model, and
 // only the tools and actions switched on for it. Every message, the model used and its token counts are stored, and
 // each exchange is written to the audit log.
 // POST { message, conversation_id?, bot_id?, firm_id? }
@@ -27,6 +28,16 @@ const ACTION_TOOLS: Record<string, { description: string; input_schema: Record<s
   send_text: { description: 'Propose texting a lead.', input_schema: { type: 'object', required: ['lead_name', 'body'], properties: { lead_name: { type: 'string' }, body: { type: 'string' } } } },
   set_services: { description: 'Propose setting the services a lead takes, by service id.', input_schema: { type: 'object', required: ['lead_name', 'service_ids'], properties: {
     lead_name: { type: 'string' }, service_ids: { type: 'array', items: { type: 'string' } } } } },
+}
+
+/** Agents learn their job in their chat: this saves what they were told as their standing instructions, straight away. */
+const LEARN_TOOL = {
+  name: 'update_instructions',
+  description: 'Save your standing instructions. Call it when the person tells you what your job is, how to behave, or asks you to change that ("from now on…"). Not for one-off requests.',
+  input_schema: { type: 'object', required: ['instructions', 'description'], properties: {
+    instructions: { type: 'string', description: 'Your complete new instructions, written to yourself: keep what still applies from the old ones and add or change what you were just told.' },
+    description: { type: 'string', description: 'One short sentence saying what you are for, shown in the agents list.' },
+  } },
 }
 
 /** A compact snapshot of the firm's data for the tools this assistant may read (read as the person, so RLS applies). */
@@ -80,6 +91,8 @@ handle(async req => {
   const system = [
     `You are ${bot ? bot.name + ', an agent' : 'the assistant'} inside the lead portal of ${firm?.name}, a law firm. You are talking with ${me.name}. Today is ${new Date().toISOString().slice(0, 10)}.`,
     bot?.instructions ? `Your instructions from the firm:\n${bot.instructions}` : '',
+    bot && !bot.instructions?.trim() ? 'You have no instructions yet. Unless the person is already telling you your job, briefly ask what they want you to do. When they tell you, call update_instructions.' : '',
+    bot ? 'If the person tells you how to work from now on, call update_instructions so you remember it.' : '',
     'Answer only from the firm data below; say so when it does not contain the answer. Never give legal advice. Keep answers short.',
     actions.length ? 'To change something, call one of your tools. The change is shown to the person and only happens if they approve it, so propose at most one change per reply and say what you proposed.' : 'You can read but not change anything. If asked to change something, say that Chat is read-only and the person can do it from the page itself or ask an agent.',
     `# Firm data\n${await snapshot(me.db, me.firmId, tools)}`,
@@ -91,7 +104,7 @@ handle(async req => {
     body: JSON.stringify({
       model, max_tokens: 1024, system,
       messages: [...past, { role: 'user', content: text }],
-      tools: actions.filter(a => ACTION_TOOLS[a]).map(a => ({ name: a, ...ACTION_TOOLS[a] })),
+      tools: [...actions.filter(a => ACTION_TOOLS[a]).map(a => ({ name: a, ...ACTION_TOOLS[a] })), ...(bot ? [LEARN_TOOL] : [])],
     }),
   })
   const out = await res.json()
@@ -99,7 +112,20 @@ handle(async req => {
 
   const blocks = (out.content ?? []) as { type: string; text?: string; name?: string; input?: Record<string, unknown> }[]
   const call = blocks.find(x => x.type === 'tool_use' && x.name && actions.includes(x.name))
-  const answer = blocks.filter(x => x.type === 'text').map(x => x.text).join('\n').trim()
+  let answer = blocks.filter(x => x.type === 'text').map(x => x.text).join('\n').trim()
+
+  // The agent was told its job: save it as its instructions now (it is the person's own instruction, so no approval).
+  const learn = bot ? blocks.find(x => x.type === 'tool_use' && x.name === 'update_instructions') : undefined
+  const learned = !!(learn && String(learn.input?.instructions ?? '').trim())
+  if (learned) {
+    const first = !bot.instructions?.trim()
+    await db.from('bots').update({
+      instructions: String(learn!.input!.instructions).trim().slice(0, 8000),
+      description: String(learn!.input!.description ?? '').trim().slice(0, 300) || bot.description,
+      updated_by: me.user.id,
+    }).eq('id', bot.id).eq('firm_id', me.firmId)
+    if (!answer) answer = first ? 'Got it. That’s my job now, and I’ll follow it in every chat. Tell me “from now on…” any time to change it.' : 'Noted. I’ve updated my instructions.'
+  }
   const action = call ? {
     kind: call.name, status: 'proposed',
     params: Object.fromEntries(Object.entries(call.input ?? {}).map(([k, v]) => [k, Array.isArray(v) ? v : String(v)])),
@@ -115,7 +141,7 @@ handle(async req => {
   await db.from('conversations').update({ updated_at: new Date().toISOString() }).eq('id', conv!.id)
   if (bot) await db.rpc('bump_bot_runs', { p_bot: bot.id })
   await audit({ firmId: me.firmId, actorType: bot ? 'agent' : 'user', actorId: me.user.id, botId: bot?.id, action: 'chat.message', table: 'chat_messages', recordId: reply?.id,
-    meta: { conversation_id: conv!.id, model: out.model ?? model, input_tokens: out.usage?.input_tokens, output_tokens: out.usage?.output_tokens, proposed: action?.kind ?? null } })
+    meta: { conversation_id: conv!.id, model: out.model ?? model, input_tokens: out.usage?.input_tokens, output_tokens: out.usage?.output_tokens, proposed: action?.kind ?? null, instructions_updated: learned } })
 
-  return json({ conversation_id: conv!.id, message: reply })
+  return json({ conversation_id: conv!.id, message: reply, instructions_updated: learned })
 })

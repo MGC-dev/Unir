@@ -429,12 +429,6 @@ export async function botRuns(botId: string): Promise<BotRun[]> {
   }))
 }
 
-/** The agent sets itself up: Claude drafts its name, instructions and permissions from a description. Nothing is saved. */
-export async function agentSetup(description: string) {
-  const r = await invoke<{ draft: Any }>('agent-setup', { description })
-  return r.draft
-}
-
 /** Runs an agent once, now (its settings must be saved first, which flush does). */
 export async function runAgent(botId: string) {
   await flush()
@@ -478,8 +472,10 @@ export const liveChat = {
       void sb().from('conversations').update({ title: c.title }).eq('id', id)
     }
     c.pending = true; touch()
-    try { await invoke('chat', { conversation_id: id, message: msg }) } catch (e) { toast('The assistant couldn’t answer', errText(e)) }
-    await reloadConversation(id)
+    let learned = false
+    try { learned = !!(await invoke<{ instructions_updated?: boolean }>('chat', { conversation_id: id, message: msg }))?.instructions_updated } catch (e) { toast('The assistant couldn’t answer', errText(e)) }
+    // An agent that saved new instructions from the chat: reload so its settings show them.
+    if (learned) await reload(); else await reloadConversation(id)
   },
   async decide(id: string, messageId: string, decision: 'approve' | 'decline') {
     try { await invoke('chat-action', { message_id: messageId, decision }) } catch (e) { toast('Couldn’t do that', errText(e)) }

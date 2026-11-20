@@ -5,7 +5,7 @@ import { toast } from '../shared/toast'
 import * as seed from './mockData'
 import { DAY, HOUR, config } from './mockData'
 import type {
-  Activity, Bot, BotAction, BotModel, BotTool, ExternalTool, ChatAction, ChatConversation, Task, AudienceKey, Campaign, CampaignFolder, MessageTemplate, CampaignTag, Firm, FirmEvent, Integration, Lead, NewCampaignInput, NewLeadInput,
+  Activity, Bot, BotAction, BotTool, ChatAction, ChatConversation, Task, AudienceKey, Campaign, CampaignFolder, MessageTemplate, CampaignTag, Firm, FirmEvent, Integration, Lead, NewCampaignInput, NewLeadInput,
   PortalDocument, Recipient, SendProgress, SentItem, Service, SourceId, StageId,
 } from './types'
 // The mock backend fills a campaign's inputs the way a real one would on send: from the ticket, the firm or the date
@@ -380,7 +380,7 @@ function proposal(text: string, bot: Bot | undefined): Reply | null {
   const need = (kind: BotAction, build: () => Reply): Reply => (!bot
     ? { text: `Chat can only read your portal, not change it. To ${BOT_ACTIONS[kind].label.toLowerCase()}, do it from the page itself, or ask an agent that has it switched on.` }
     : !bot.actions.includes(kind)
-      ? { text: `${who} isn't set up to ${BOT_ACTIONS[kind].label.toLowerCase()}. Switch it on under Agents, in "Inside the portal".` } : build())
+      ? { text: `${who} isn't set up to ${BOT_ACTIONS[kind].label.toLowerCase()}. Switch on "Inside the portal" in its settings.` } : build())
   const missing = (name: string): Reply => ({ text: `I couldn't find a lead called ${bold(name)}. Check the name and try again.` })
   let m: RegExpMatchArray | null
 
@@ -421,7 +421,26 @@ function proposal(text: string, bot: Bot | undefined): Reply | null {
   return null
 }
 
+/** "From now on…", "Your job is…": the person is telling the agent how to work. */
+const TEACHING = /^(from now on|going forward|your (job|role|task|instructions)|you('| a)re (an?|my|the)|you (are|should|will|must)|always|never|instructions?:)/i
+/** One sentence for the agent list, from what it was told. */
+const summary = (s: string) => { const first = s.split(/(?<=[.!?])\s/)[0].trim(); return first.length > 120 ? first.slice(0, 117) + '…' : first }
+
+/** An agent learns its job in its chat: the first thing it is told, and anything said as "from now on…" later. */
+function learn(text: string, bot: Bot): Reply | null {
+  const first = !bot.instructions.trim()
+  if (!first && !TEACHING.test(text)) return null
+  bot.instructions = first ? text : `${bot.instructions}\n${text}`
+  if (first || !bot.description) bot.description = summary(text)
+  bot.updatedAt = Date.now()
+  return { text: first
+    ? `Got it. That's my job now, and I'll follow it in every chat. You can change it any time by telling me "from now on…", or in my settings.`
+    : `Noted. I've added that to my instructions.` }
+}
+
 function answer(text: string, bot: Bot | undefined): Reply {
+  const taught = bot ? learn(text, bot) : null
+  if (taught) return taught
   const act = proposal(text, bot)
   if (act) return act
   const name = bot?.name ?? 'UNIR Assistant'
@@ -530,30 +549,3 @@ export function declineChat(convId: string, messageId: string) {
   if (a && a.status === 'proposed') { a.status = 'cancelled'; a.result = 'Nothing was changed.' }
 }
 
-/** Sample mode's stand-in for agent-setup: reads the description for keywords and drafts the agent from them. */
-export function draftAgent(description: string): { name: string; description: string; instructions: string; model: BotModel; tools: BotTool[]; actions: BotAction[]; external: ExternalTool[] } {
-  const d = description.trim(), has = (re: RegExp) => re.test(d)
-  const tools = new Set<BotTool>(['leads'])
-  if (has(/task|follow.?up|deadline|remind|call|meeting|calendar|book/i)) tools.add('tasks')
-  if (has(/document|contract|letter|sign/i)) tools.add('documents')
-  if (has(/campaign|survey|newsletter|nps/i)) tools.add('campaigns')
-  if (has(/message|text|email|inbox|reply|repl(y|ies)/i)) tools.add('messages')
-  if (has(/service|pric|fee|quote/i)) tools.add('services')
-  const actions: BotAction[] = []
-  if (has(/create|add|new (lead|enquir)|intake/i)) actions.push('create_lead')
-  if (has(/move|stage|pipeline/i)) actions.push('move_stage')
-  if (has(/book|schedule|follow.?up|remind/i)) actions.push('book_task')
-  const external: ExternalTool[] = []
-  if (has(/web|online|search|news|law update|court/i)) external.push('web')
-  if (has(/link|url|page/i)) external.push('pages')
-  if (has(/gmail|outlook|inbox/i)) external.push('email')
-  const words = d.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 3 && !/^(that|this|with|from|every|each|should|agent|will|which|them|they|their|about|into)$/i.test(w))
-  const name = words.slice(0, 2).map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ') + ' Agent'
-  return {
-    name: name.trim() === 'Agent' ? 'New Agent' : name,
-    description: d.length > 140 ? d.slice(0, 137) + '…' : d,
-    instructions: `Your job: ${d}\n\nUse only what you can see in the portal. Keep answers short and clear, and say when you don't have the information. Propose changes for approval rather than assuming. Never give legal advice.`,
-    model: has(/draft|analy|careful|complex|report|summar/i) ? 'advanced' : 'balanced',
-    tools: [...tools], actions, external,
-  }
-}

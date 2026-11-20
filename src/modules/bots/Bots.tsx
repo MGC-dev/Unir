@@ -84,10 +84,36 @@ function Composer({ placeholder, disabled, busy, focusKey, onSend }: { placehold
   )
 }
 
+/** Creating an agent asks only for its name. Its job is then told to it in its chat. */
+function NamePrompt({ onCreate, onCancel }: { onCreate: (name: string) => void; onCancel: () => void }) {
+  const [name, setName] = useState('')
+  const box = useRef<HTMLInputElement>(null)
+  useEffect(() => { box.current?.focus() }, [])
+  const ok = !!name.trim()
+  return (
+    <div className="absolute inset-0 z-30 grid place-items-center bg-black/20 p-4" onMouseDown={e => { if (e.target === e.currentTarget) onCancel() }}
+      onKeyDown={e => { if (e.key === 'Escape') onCancel() }}>
+      <form role="dialog" aria-modal="true" aria-labelledby="new-agent-title" onSubmit={e => { e.preventDefault(); if (ok) onCreate(name.trim()) }}
+        className="w-full max-w-[300px] overflow-hidden rounded-[14px] bg-white/95 text-center shadow-[0_20px_50px_rgba(0,0,0,0.25)] backdrop-blur">
+        <div className="grid gap-1 px-4 pt-5 pb-4">
+          <h2 id="new-agent-title" className="text-[17px] font-semibold text-ios-label">New agent</h2>
+          <p className="text-[13px] leading-[18px] text-ios-secondary">Give it a name. Then tell it what to do in its chat.</p>
+          <input ref={box} value={name} onChange={e => setName(e.target.value)} maxLength={60} aria-label="Agent name" placeholder="e.g. Intake Assistant"
+            className="mt-2.5 h-9 rounded-lg border border-[#d1d1d6] bg-white px-2.5 text-[15px] text-ios-label outline-none placeholder:text-ios-tertiary focus:border-ios-accent/50 focus:ring-2 focus:ring-ios-accent/[0.12]" />
+        </div>
+        <div className="grid grid-cols-2 border-t border-ios-separator text-[17px]">
+          <button type="button" onClick={onCancel} className={cn('h-11 text-ios-accent hover:bg-black/[0.03]', focusRing)}>Cancel</button>
+          <button type="submit" disabled={!ok} className={cn('h-11 border-l border-ios-separator font-semibold text-ios-accent hover:bg-black/[0.03] disabled:opacity-40', focusRing)}>Create</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 /** One agent in the list: its face, name, the last thing said and when. */
 function AgentRow({ bot, conv, selected, onOpen }: { bot: Bot; conv?: ChatConversation; selected: boolean; onOpen: () => void }) {
   const last = conv?.messages[conv.messages.length - 1]
-  const preview = !bot.active ? 'Draft · switch it on in settings' : last ? plain(last.text) : bot.description || 'Say hello'
+  const preview = !bot.active ? 'Off · switch it on in settings' : last ? plain(last.text) : bot.description || (bot.instructions.trim() ? 'Say hello' : 'Tell it what to do')
   return (
     <li>
       <button type="button" onClick={onOpen} aria-current={selected ? 'true' : undefined}
@@ -124,7 +150,7 @@ export default function Bots() {
   const end = useRef<HTMLDivElement>(null)
   const making = useRef('')
   const settings = location.pathname.endsWith('/settings')
-  const isNew = !!(location.state as { edit?: boolean } | null)?.edit
+  const [naming, setNaming] = useState(false)
 
   const threadOf = (b: Bot): ChatConversation | undefined => convs?.find(c => c.botId === b.id)
   const lastAt = (b: Bot) => threadOf(b)?.updatedAt ?? b.updatedAt
@@ -145,7 +171,8 @@ export default function Bots() {
   useEffect(() => { if (conv?.unread) chatApi.markRead(conv.id) }, [conv?.unread, conv?.id, messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }) }, [messages.length, pending, id])
 
-  const add = async () => { const b = await botsApi.create(); navigate(`/dashboard/agents/${b.id}/settings`, { state: { edit: true } }) }
+  const add = () => setNaming(true)
+  const create = async (name: string) => { setNaming(false); const b = await botsApi.create(name); navigate(`/dashboard/agents/${b.id}`) }
   const send = async (text: string) => { if (conv) await chatApi.send(conv.id, text) }
   const onScroll = () => { const el = thread.current; if (el) setFar(el.scrollHeight - el.scrollTop - el.clientHeight > 240) }
   const toggleSettings = () => bot && navigate(settings ? `/dashboard/agents/${bot.id}` : `/dashboard/agents/${bot.id}/settings`)
@@ -180,7 +207,7 @@ export default function Bots() {
                 {active.length > 0 && <ul className="grid gap-px">{active.map(b => <AgentRow key={b.id} bot={b} conv={threadOf(b)} selected={b.id === id} onOpen={() => navigate(`/dashboard/agents/${b.id}`)} />)}</ul>}
                 {drafts.length > 0 && (
                   <>
-                    <h3 className="px-4 pt-4 pb-1.5 text-[12px] font-semibold uppercase tracking-[0.04em] text-ios-secondary">Drafts</h3>
+                    <h3 className="px-4 pt-4 pb-1.5 text-[12px] font-semibold uppercase tracking-[0.04em] text-ios-secondary">Switched off</h3>
                     <ul className="grid gap-px">{drafts.map(b => <AgentRow key={b.id} bot={b} conv={threadOf(b)} selected={b.id === id} onOpen={() => navigate(`/dashboard/agents/${b.id}`)} />)}</ul>
                   </>
                 )}
@@ -196,7 +223,7 @@ export default function Bots() {
             <div className="m-auto grid max-w-sm justify-items-center gap-3 p-6 text-center">
               <span className="grid size-16 place-items-center rounded-full bg-white text-ios-accent shadow-[0_1px_2px_rgba(0,0,0,0.05)]"><IconPlus className="size-7" stroke={2} /></span>
               <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ios-label">Create an agent</h2>
-              <p className="text-[15px] leading-[21px] text-ios-secondary">An agent has its own instructions and tools, inside the portal and outside it.</p>
+              <p className="text-[15px] leading-[21px] text-ios-secondary">Name it, then tell it its job in the chat. It remembers what you tell it.</p>
               <button type="button" onClick={add} className={cn('mt-1 h-9 rounded-full bg-ios-accent px-4 text-[15px] font-semibold text-white', focusRing)}>New agent</button>
             </div>
           ) : (
@@ -207,7 +234,7 @@ export default function Bots() {
                   <BotAvatar bot={bot} size={28} muted={!bot.active} />
                   <span className="grid min-w-0 leading-tight">
                     <b className="truncate text-[15px] font-semibold text-ios-label">{bot.name}</b>
-                    <small className="truncate text-[12px] text-ios-secondary">{bot.active ? `${BOT_MODELS[bot.model].label} model` : 'Draft'}</small>
+                    <small className="truncate text-[12px] text-ios-secondary">{bot.active ? `${BOT_MODELS[bot.model].label} model` : 'Switched off'}</small>
                   </span>
                 </span>
                 <span className="flex justify-end">
@@ -223,7 +250,9 @@ export default function Bots() {
                   <div className="grid h-full content-center justify-items-center gap-2 text-center">
                     <BotAvatar bot={bot} size={72} muted={!bot.active} />
                     <h2 className="mt-1 text-[22px] font-semibold tracking-[-0.02em] text-ios-label">{bot.name}</h2>
-                    <p className="max-w-sm text-[15px] leading-[21px] text-ios-secondary">{bot.description || 'Say hello.'}</p>
+                    <p className="max-w-sm text-[15px] leading-[21px] text-ios-secondary">{bot.instructions.trim()
+                      ? bot.description || 'Say hello.'
+                      : `What should ${bot.name} do? Tell it here, like you would a new colleague. It saves what you say as its job, and you can change it any time.`}</p>
                   </div>
                 ) : conv && <Thread conv={conv} messages={messages} pending={pending} />}
                 <div ref={end} />
@@ -234,11 +263,11 @@ export default function Bots() {
 
               <div className="shrink-0 px-4 pb-3">
                 {bot.active ? (
-                  <Composer placeholder={`Message ${bot.name}`} disabled={!conv} busy={pending} focusKey={bot.id} onSend={send} />
+                  <Composer placeholder={bot.instructions.trim() ? `Message ${bot.name}` : `Tell ${bot.name} what to do`} disabled={!conv} busy={pending} focusKey={bot.id} onSend={send} />
                 ) : (
                   <p className="flex flex-wrap items-center justify-center gap-x-1 rounded-[20px] border border-ios-separator bg-white px-4 py-2.5 text-center text-[14px] text-ios-secondary">
-                    {bot.name} is a draft.
-                    <button type="button" onClick={() => navigate(`/dashboard/agents/${bot.id}/settings`)} className={cn('rounded font-medium text-ios-accent hover:underline', focusRing)}>Make it available in Chat</button>
+                    {bot.name} is switched off.
+                    <button type="button" onClick={() => navigate(`/dashboard/agents/${bot.id}/settings`)} className={cn('rounded font-medium text-ios-accent hover:underline', focusRing)}>Switch it on</button>
                   </p>
                 )}
                 <p className="mt-1.5 text-center text-[11.5px] text-ios-secondary">Answers come from this portal’s sample data. Changes in the portal wait for your approval.</p>
@@ -251,9 +280,11 @@ export default function Bots() {
       {show.inspector && bot && (
         <div className={cn('min-h-0 border-l border-ios-separator',
           phone ? '' : 'absolute inset-y-0 right-0 z-10 w-[380px] bg-ios-page shadow-[-12px_0_32px_rgba(0,0,0,0.10)] xl:static xl:w-auto xl:bg-transparent xl:shadow-none')}>
-          <AgentInspector bot={bot} isNew={isNew} onClose={() => navigate(`/dashboard/agents/${bot.id}`)} onDeleted={() => navigate('/dashboard/agents')} />
+          <AgentInspector bot={bot} onClose={() => navigate(`/dashboard/agents/${bot.id}`)} onDeleted={() => navigate('/dashboard/agents')} />
         </div>
       )}
+
+      {naming && <NamePrompt onCreate={create} onCancel={() => setNaming(false)} />}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { IconTrash } from '@tabler/icons-react'
 import { botsApi, firmApi, live, useQuery, type BotInput } from '../../api'
-import { BOT_ACTIONS, BOT_MODELS, BOT_TOOLS, EXTERNAL_TOOLS, type Bot, type BotModel, type BotRun, type BotSchedule } from '../../api/types'
+import { BOT_ACTIONS, BOT_MODELS, BOT_TOOLS, EXTERNAL_TOOLS, type Bot, type BotAction, type BotModel, type BotRun, type BotSchedule, type BotTool, type ExternalTool } from '../../api/types'
 import { when } from '../../shared/format'
 import { cn } from '@/lib/utils'
 import { BotAvatar } from './BotAvatar'
@@ -13,8 +13,11 @@ const toInput = (a: Bot): BotInput => ({
   name: a.name, description: a.description, instructions: a.instructions, model: a.model, tools: [...a.tools], actions: [...a.actions], external: [...a.external], active: a.active,
   schedule: a.schedule ? { ...a.schedule, days: [...a.schedule.days], to: [...a.schedule.to] } : noSchedule(),
 })
-/** Shown beside both permission groups. */
+/** Shown beside the permissions. */
 const TOKEN_TIP = 'The more you switch on, the more the agent reads and does on every message, so it uses more tokens. Switch on only what it needs.'
+const ALL_TOOLS = Object.keys(BOT_TOOLS) as BotTool[]
+const ALL_ACTIONS = Object.keys(BOT_ACTIONS) as BotAction[]
+const ALL_EXTERNAL = Object.keys(EXTERNAL_TOOLS) as ExternalTool[]
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 /** "Weekdays at 08:00", "Every day at 07:30", "Mon, Wed at 09:00". */
 const scheduleLabel = (s: BotSchedule) => {
@@ -24,7 +27,6 @@ const scheduleLabel = (s: BotSchedule) => {
 }
 const EMAIL_NOTE: Record<BotRun['emailStatus'], string> = { none: 'Not emailed', sent: 'Emailed', held: 'Email held', failed: 'Email failed' }
 const same = (a: BotInput, b: BotInput) => JSON.stringify(a) === JSON.stringify(b)
-const flip = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter(x => x !== v) : [...list, v])
 
 /** An on/off switch for a list row. Position and fill both change, so the state never rests on colour alone. */
 function Switch({ on, onChange, labelledBy }: { on: boolean; onChange: () => void; labelledBy: string }) {
@@ -81,7 +83,7 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
  * Everything about one agent, beside its chat. Edits stay local until Save; Cancel puts them back.
  * Done closes the inspector when nothing has changed.
  */
-export function AgentInspector({ bot, isNew, onClose, onDeleted }: { bot: Bot; isNew?: boolean; onClose: () => void; onDeleted: () => void }) {
+export function AgentInspector({ bot, onClose, onDeleted }: { bot: Bot; onClose: () => void; onDeleted: () => void }) {
   const [draft, setDraft] = useState<BotInput>(() => toInput(bot))
   const [error, setError] = useState('')
   const [confirming, setConfirming] = useState(false)
@@ -96,31 +98,17 @@ export function AgentInspector({ bot, isNew, onClose, onDeleted }: { bot: Bot; i
   const [running, setRunning] = useState(false)
   const runNow = async () => { setRunning(true); try { await botsApi.runNow(bot.id) } finally { setRunning(false) } }
   const sched = draft.schedule
-  // The agent sets itself up from a plain description; the person reviews the draft and saves.
-  const [describing, setDescribing] = useState(() => !!isNew || !bot.instructions.trim())
-  const [brief, setBrief] = useState('')
-  const [settingUp, setSettingUp] = useState(false)
-  const setUp = async () => {
-    if (!brief.trim()) { setError('Describe what the agent should do first.'); return }
-    setSettingUp(true); setError('')
-    try {
-      const d = await botsApi.setup(brief.trim())
-      setDraft(cur => ({ ...cur, ...d }))
-      setDescribing(false)
-    } catch (e) { setError(e instanceof Error ? e.message : 'The agent couldn’t set itself up. Try again.') }
-    finally { setSettingUp(false) }
-  }
+  const inside = draft.tools.length > 0 || draft.actions.length > 0
+  const outside = draft.external.length > 0
 
   // Another agent opened in the same inspector: start from its saved settings.
-  useEffect(() => { setDraft(toInput(bot)); setError(''); setConfirming(false); setBrief(''); setDescribing(!!isNew || !bot.instructions.trim()) }, [bot.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (isNew) name.current?.select() }, [isNew, bot.id])
+  useEffect(() => { setDraft(toInput(bot)); setError(''); setConfirming(false) }, [bot.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
     if (!draft.name.trim()) { setError('Give the agent a name.'); name.current?.focus(); return }
-    if (draft.active && !draft.instructions.trim()) { setError('Write its instructions before making it available in Chat.'); return }
-    if (sched.enabled && !draft.active) { setError('Switch on “Available in Chat” too: only agents that are on run by themselves.'); return }
+    if (sched.enabled && !draft.active) { setError('Switch the agent on too: only agents that are on run by themselves.'); return }
     if (sched.enabled && !sched.days.length) { setError('Pick at least one day for it to run.'); return }
-    if (sched.enabled && !draft.instructions.trim()) { setError('Write its instructions so it knows what to report.'); return }
+    if (sched.enabled && !draft.instructions.trim()) { setError('Tell it its job in the chat first, so it knows what to report.'); return }
     setSaving(true)
     await botsApi.update(bot.id, { ...draft, name: draft.name.trim() })
     setSaving(false)
@@ -153,26 +141,10 @@ export function AgentInspector({ bot, isNew, onClose, onDeleted }: { bot: Bot; i
             </div>
           </div>
 
-          {describing ? (
-            <Group title="Set it up for me" footer="Describe its job in a sentence or two. It writes its own name, instructions and permissions, and switches on only what it needs. Review them, then Save.">
-              <textarea aria-label="What should this agent do?" rows={3} value={brief} onChange={e => setBrief(e.target.value)} disabled={settingUp}
-                placeholder="e.g. Every morning, summarise new enquiries and overdue follow-ups for the intake team."
-                className="block w-full resize-y bg-white px-4 py-3 text-[15px] leading-[22px] text-ios-label outline-none placeholder:text-ios-tertiary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ios-accent/[0.12] disabled:opacity-60" />
-              <button type="button" disabled={settingUp || !brief.trim()} onClick={setUp}
-                className="flex min-h-11 w-full items-center justify-center text-[15px] font-semibold text-ios-accent outline-none hover:bg-black/[0.03] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ios-accent/40 disabled:opacity-40">
-                {settingUp ? 'Setting itself up…' : 'Set up agent'}
-              </button>
-            </Group>
-          ) : (
-            <button type="button" onClick={() => setDescribing(true)} className="justify-self-center rounded-lg px-2 py-1 text-[14px] font-medium text-ios-accent outline-none hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-ios-accent/50">
-              Set it up again from a description
-            </button>
-          )}
-
           {error && <p role="alert" className="rounded-xl bg-white px-4 py-3 text-[14px] text-ios-red">{error}</p>}
 
-          <Group footer={draft.active ? 'Anyone in the firm can chat with it.' : 'A draft. Switch it on and save to start chatting with it.'}>
-            <SwitchRow label="Available in Chat" on={draft.active} onChange={() => set({ active: !draft.active })} />
+          <Group footer={draft.active ? 'Anyone in the firm can chat with it.' : 'Switched off. Nobody can chat with it until you switch it on and save.'}>
+            <SwitchRow label="On" on={draft.active} onChange={() => set({ active: !draft.active })} />
           </Group>
 
           <Group title="Model" footer={BOT_MODELS[draft.model].hint + '.'}>
@@ -182,25 +154,17 @@ export function AgentInspector({ bot, isNew, onClose, onDeleted }: { bot: Bot; i
             </div>
           </Group>
 
-          <Group title="Inside the portal" tip={TOKEN_TIP}
-            footer="What it can read and change in the portal. Every change waits for your approval in the chat before it happens.">
-            {Object.entries(BOT_TOOLS).map(([k, t]) => (
-              <SwitchRow key={k} label={`Read ${t.label.toLowerCase()}`} hint={t.hint} on={draft.tools.includes(k as never)} onChange={() => set({ tools: flip(draft.tools, k as never) })} />
-            ))}
-            {Object.entries(BOT_ACTIONS).map(([k, t]) => (
-              <SwitchRow key={k} label={t.label} hint={t.hint} on={draft.actions.includes(k as never)} onChange={() => set({ actions: flip(draft.actions, k as never) })} />
-            ))}
+          <Group title="Permissions" tip={TOKEN_TIP}
+            footer={inside || outside ? 'Changes in the portal wait for your approval in the chat before they happen.' : 'With both off it can only talk, using what you tell it in the chat.'}>
+            <SwitchRow label="Inside the portal" hint="Read and work with leads, tasks, documents, campaigns, messages and services"
+              on={inside} onChange={() => set(inside ? { tools: [], actions: [] } : { tools: ALL_TOOLS, actions: ALL_ACTIONS })} />
+            <SwitchRow label="Outside the portal" hint="Search the web, read pages, use a browser, email, calendar, files and APIs"
+              on={outside} onChange={() => set({ external: outside ? [] : ALL_EXTERNAL })} />
           </Group>
 
-          <Group title="Outside the portal" tip={TOKEN_TIP} footer="The general assistant in Chat stays inside the portal. Use an agent for anything online.">
-            {Object.entries(EXTERNAL_TOOLS).map(([k, t]) => (
-              <SwitchRow key={k} label={t.label} hint={t.hint} on={draft.external.includes(k as never)} onChange={() => set({ external: flip(draft.external, k as never) })} />
-            ))}
-          </Group>
-
-          <Group title="Instructions" footer="Followed in every chat: its job, its tone and what it must never do.">
+          <Group title="Instructions" footer="What it learned from your chat. It updates itself when you tell it “from now on…”, or you can edit it here.">
             <textarea aria-label="Instructions" rows={7} value={draft.instructions} onChange={e => set({ instructions: e.target.value })}
-              placeholder="e.g. You help the intake team. Draft a warm first reply, suggest the next step, and never give legal advice."
+              placeholder="Nothing yet. Tell it its job in the chat, and it will appear here."
               className="block w-full resize-y bg-white px-4 py-3 text-[15px] leading-[22px] text-ios-label outline-none placeholder:text-ios-tertiary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ios-accent/[0.12]" />
           </Group>
 

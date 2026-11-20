@@ -5,13 +5,14 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { config as seedConfig, enquiryPool, team as seedTeam } from './mockData'
 import * as srv from './mockServer'
 import { store, live } from './mockServer'
-import { addDomain, agentSetup, botRuns, googleCalendarEvents, googleCalendarStatus, googleConnect, googleDisconnect, type GoogleCalendarEvent, type GoogleCalendarState, checkDomain, inviteMember, isAdmin, liveChat, reload as reloadLive, remote, runAgent, uploadLogo } from './remote'
+import { addDomain, botRuns, googleCalendarEvents, googleCalendarStatus, googleConnect, googleDisconnect, type GoogleCalendarEvent, type GoogleCalendarState, checkDomain, inviteMember, isAdmin, liveChat, reload as reloadLive, remote, runAgent, uploadLogo } from './remote'
 
 export { live }
 import { toast } from '../shared/toast' // mock-only: a real backend would not toast, the UI would
 import type {
   Task, AudienceKey, Campaign, PortalConfig, Firm, FirmEvent, Integration, Lead, NewCampaignInput, NewLeadInput,
   DocFile, DocField, PortalDocument, SearchHit, Service, SendProgress, SentItem, SourceId, StageId, TeamMember, CampaignTag, CampaignChannel, CampaignFolder, MessageTemplate, TemplateChannel, SurveyMetric, Bot, BotAction, BotModel, BotTool, ChatConversation, ExternalTool, BotSchedule, BotRun, FirmBrand } from './types'
+import { BOT_ACTIONS, BOT_TOOLS } from './types'
 
 const clone = <T,>(v: T): T => structuredClone(v)
 const reply = <T,>(v: T): Promise<T> => Promise.resolve(clone(v))
@@ -304,17 +305,12 @@ export interface BotInput { name: string; description: string; instructions: str
 export const botsApi = {
   list: (): Promise<Bot[]> => reply([...store.get().bots].sort((a, b) => b.updatedAt - a.updatedAt)),
   get: (id: string): Promise<Bot | undefined> => reply(store.get().bots.find(a => a.id === id)),
-  /** Creates an empty draft bot. */
-  create(): Promise<Bot> {
+  /** Creates an agent with just a name. It is on straight away, can use the whole portal, and learns its job in its chat. */
+  create(name = 'New agent'): Promise<Bot> {
     const now = Date.now()
-    const a: Bot = { id: srv.uid('a'), name: 'Untitled agent', description: '', instructions: '', model: 'balanced', tools: ['leads'], actions: [], external: [], active: false, runs: 0, createdAt: now, updatedAt: now, updatedBy: 'Sarah Mitchell' }
+    const a: Bot = { id: srv.uid('a'), name: name.trim() || 'New agent', description: '', instructions: '', model: 'balanced', tools: Object.keys(BOT_TOOLS) as BotTool[], actions: Object.keys(BOT_ACTIONS) as BotAction[], external: [], active: true, runs: 0, createdAt: now, updatedAt: now, updatedBy: 'Sarah Mitchell' }
     store.get().bots.unshift(a); store.commit()
     return reply(a)
-  },
-  /** A draft setup from a plain description of the job: name, instructions, model and the fewest permissions it needs. Not saved. */
-  async setup(description: string): Promise<Omit<BotInput, 'active' | 'schedule'>> {
-    if (live) return agentSetup(description)
-    return srv.draftAgent(description)
   },
   update(id: string, input: BotInput) {
     const a = store.get().bots.find(x => x.id === id)
